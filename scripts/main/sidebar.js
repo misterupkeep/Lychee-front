@@ -11,6 +11,7 @@ let sidebar = {
 	types: {
 		DEFAULT: 0,
 		TAGS: 1,
+		SIMILAR: 2,
 	},
 	createStructure: {},
 };
@@ -272,6 +273,12 @@ sidebar.createStructure.photo = function (data) {
 			break;
 	}
 
+	structure.similar = {
+		title: "Similar Images",
+		type: sidebar.types.SIMILAR,
+		imgSrc: data.size_variants.thumb2x.url,
+	};
+
 	structure.basics = {
 		title: lychee.locale["PHOTO_BASICS"],
 		type: sidebar.types.DEFAULT,
@@ -406,7 +413,15 @@ sidebar.createStructure.photo = function (data) {
 	}
 
 	// Construct all parts of the structure
-	const structure_ret = [structure.basics, structure.image, structure.tags, structure.exif, structure.location, structure.license];
+	const structure_ret = [
+		structure.similar,
+		structure.basics,
+		structure.image,
+		structure.tags,
+		structure.exif,
+		structure.location,
+		structure.license,
+	];
 
 	if (!lychee.publicMode) {
 		structure_ret.push(structure.sharing);
@@ -638,11 +653,35 @@ sidebar.render = function (structure) {
 		return _html;
 	};
 
+	const renderSimilar = function (section) {
+		fetch("/iqdb/query", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({ file: section.imgSrc }),
+		})
+			.then((r) => r.json())
+			.then((/** @type {object[]} */ matches) => {
+				let html = '<div class="similar-container">';
+				matches.forEach((match) => (html += `<a href="${match.href}"><img src="${match.url}"></a>`));
+				html += "</div>";
+				$("#similar").append(html);
+			});
+
+		return lychee.html`
+				 <div class='sidebar__divider'>
+					 <h1>${section.title}</h1>
+				 </div>
+                 <div id='similar'></div>`;
+	};
+
 	let html = "";
 
 	structure.forEach(function (section) {
 		if (section.type === sidebar.types.DEFAULT) html += renderDefault(section);
 		else if (section.type === sidebar.types.TAGS) html += renderTags(section);
+		else if (section.type === sidebar.types.SIMILAR) html += renderSimilar(section);
 	});
 
 	return html;
