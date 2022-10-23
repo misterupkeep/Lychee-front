@@ -21,7 +21,7 @@ build.iconic = function (icon, classes = "") {
  * @returns {string}
  */
 build.divider = function (title) {
-	return lychee.html`<div class='divider'><h1>${title}</h1></div>`;
+	return lychee.html`<div class='divider'><h1>$${title}</h1></div>`;
 };
 
 /**
@@ -86,13 +86,13 @@ build.album = function (data, disabled = false) {
 	// default: any other type defaults to old style setting subtitles based of album sorting
 	switch (lychee.album_subtitle_type) {
 		case "description":
-			subtitle = data.description ? data.description : "";
+			subtitle = data.description ? lychee.escapeHTML(data.description) : "";
 			break;
 		case "takedate":
 			if (formattedMinTs !== "" || formattedMaxTs !== "") {
 				// either min_taken_at or max_taken_at is set
 				subtitle = formattedMinTs === formattedMaxTs ? formattedMaxTs : formattedMinTs + " - " + formattedMaxTs;
-				subtitle = `<span title='${lychee.locale["CAMERA_DATE"]}'>${build.iconic("camera-slr")}</span>${subtitle}`;
+				subtitle = lychee.html`<span title='${lychee.locale["CAMERA_DATE"]}'>${build.iconic("camera-slr")}</span>$${subtitle}`;
 				break;
 			}
 		// fall through
@@ -337,7 +337,7 @@ build.overlay_image = function (data) {
 	let overlay = "";
 	switch (build.check_overlay_type(data, lychee.image_overlay_type)) {
 		case "desc":
-			overlay = data.description;
+			overlay = lychee.escapeHTML(data.description);
 			break;
 		case "date":
 			if (data.taken_at != null)
@@ -496,64 +496,8 @@ build.no_content = function (type) {
 };
 
 /**
- * @param {string}                                           title the title of the dialog
- * @param {(FileList|File[]|DropboxFile[]|{name: string}[])} files a list of file entries to be shown in the dialog
- * @returns {string}                                                the HTML fragment for the dialog
- */
-build.uploadModal = function (title, files) {
-	let html = "";
-
-	html += lychee.html`
-			<h1>$${title}</h1>
-			<div class='rows'>
-			`;
-
-	let i = 0;
-
-	while (i < files.length) {
-		let file = files[i];
-
-		if (file.name.length > 40) file.name = file.name.substr(0, 17) + "..." + file.name.substr(file.name.length - 20, 20);
-
-		html += lychee.html`
-				<div class='row'>
-					<a class='name'>${file.name}</a>
-					<a class='status'></a>
-					<p class='notice'></p>
-				</div>
-				`;
-
-		i++;
-	}
-
-	html += `</div>`;
-
-	return html;
-};
-
-/**
- * Builds the HTML snippet for a row in the upload dialog.
- *
- * @param {string} name
- * @returns {string}
- */
-build.uploadNewFile = function (name) {
-	if (name.length > 40) {
-		name = name.substring(0, 17) + "..." + name.substring(name.length - 20, name.length);
-	}
-
-	return lychee.html`
-		<div class='row'>
-			<a class='name'>${name}</a>
-			<a class='status'></a>
-			<p class='notice'></p>
-		</div>
-		`;
-};
-
-/**
  * @param {string[]} tags
- * @returns {string}
+ * @returns {string} return safe HTMl code
  */
 build.tags = function (tags) {
 	let html = "";
@@ -616,7 +560,7 @@ build.user = function (user) {
 build.u2f = function (credential) {
 	return lychee.html`<div class="u2f_view_line">
 			<p id="CredentialData${credential.id}">
-			<input name="id" type="hidden" inputmode="numeric" value="${credential.id}" />
+			<input name="id" type="hidden" inputmode="string" value="${credential.id}" />
 			<span class="text">${credential.id.slice(0, 30)}</span>
 			<!--- <span class="choice" title="Allow uploads">
 			<label>

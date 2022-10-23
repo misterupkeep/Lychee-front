@@ -25,7 +25,7 @@ contextMenu.add = function (e) {
 		items.splice(1);
 	}
 
-	if (!lychee.admin) {
+	if (!lychee.rights.is_admin) {
 		// remove import from dropbox and server if not admin
 		items.splice(3, 2);
 	} else if (!lychee.dropboxKey || lychee.dropboxKey === "") {
@@ -352,7 +352,7 @@ contextMenu.photo = function (photoID, e) {
 			title: build.iconic("star") + (isPhotoStarred ? lychee.locale["UNSTAR"] : lychee.locale["STAR"]),
 			fn: () => photo.setStar([photoID], !isPhotoStarred),
 		},
-		{ title: build.iconic("tag") + lychee.locale["TAGS"], fn: () => photo.editTags([photoID]) },
+		{ title: build.iconic("tag") + lychee.locale["TAG"], fn: () => photo.editTags([photoID]) },
 		// for future work, use a list of all the ancestors.
 		{
 			title: build.iconic("folder-cover", coverActive ? "active" : "") + lychee.locale[coverActive ? "REMOVE_COVER" : "SET_COVER"],
@@ -437,7 +437,7 @@ contextMenu.photoMulti = function (photoIDs, e) {
 			visible: !(arePhotosStarred && arePhotosNotStarred),
 			fn: () => photo.setStar(photoIDs, arePhotosNotStarred),
 		},
-		{ title: build.iconic("tag") + lychee.locale["TAGS_ALL"], fn: () => photo.editTags(photoIDs) },
+		{ title: build.iconic("tag") + lychee.locale["TAG_ALL"], fn: () => photo.editTags(photoIDs) },
 		{},
 		{ title: build.iconic("pencil") + lychee.locale["RENAME_ALL"], fn: () => photo.setTitle(photoIDs) },
 		{
@@ -678,7 +678,7 @@ contextMenu.move = function (IDs, e, callback, kind = "UNSORTED", display_root =
 			addItems(data.albums);
 		}
 
-		if (data.shared_albums && data.shared_albums.length > 0 && lychee.admin) {
+		if (data.shared_albums && data.shared_albums.length > 0 && lychee.rights.is_admin) {
 			items = items.concat({});
 			addItems(data.shared_albums);
 		}
@@ -717,7 +717,11 @@ contextMenu.sharePhoto = function (photoID, e) {
 		{ title: build.iconic("twitter", iconClass) + "Twitter", fn: () => photo.share(photoID, "twitter") },
 		{ title: build.iconic("facebook", iconClass) + "Facebook", fn: () => photo.share(photoID, "facebook") },
 		{ title: build.iconic("envelope-closed") + "Mail", fn: () => photo.share(photoID, "mail") },
-		{ title: build.iconic("dropbox", iconClass) + "Dropbox", visible: lychee.admin === true, fn: () => photo.share(photoID, "dropbox") },
+		{
+			title: build.iconic("dropbox", iconClass) + "Dropbox",
+			visible: lychee.rights.is_admin === true,
+			fn: () => photo.share(photoID, "dropbox"),
+		},
 		{ title: build.iconic("link-intact") + lychee.locale["DIRECT_LINKS"], fn: () => photo.showDirectLinks(photoID) },
 		{ title: build.iconic("grid-two-up") + lychee.locale["QR_CODE"], fn: () => photo.qrCode(photoID) },
 	];
@@ -782,12 +786,12 @@ contextMenu.config = function (e) {
 	if (lychee.new_photos_notification) {
 		items.push({ title: build.iconic("bell") + lychee.locale["NOTIFICATIONS"], fn: notifications.load });
 	}
-	if (lychee.admin) {
+	if (lychee.rights.is_admin) {
 		items.push({ title: build.iconic("person") + lychee.locale["USERS"], fn: users.list });
 	}
 	items.push({ title: build.iconic("key") + lychee.locale["U2F"], fn: u2f.list });
 	items.push({ title: build.iconic("cloud") + lychee.locale["SHARING"], fn: sharing.list });
-	if (lychee.admin) {
+	if (lychee.rights.is_admin) {
 		items.push({
 			title: build.iconic("align-left") + lychee.locale["LOGS"],
 			fn: function () {

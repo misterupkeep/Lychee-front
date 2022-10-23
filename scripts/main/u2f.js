@@ -8,10 +8,11 @@ const u2f = {
  */
 u2f.is_available = function () {
 	if (!window.isSecureContext && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
-		const msg = lychee.html`<h1>${lychee.locale["U2F_NOT_SECURE"]}</h1>`;
-
 		basicModal.show({
-			body: msg,
+			body: "<p></p>",
+			readyCB: function (formElements, dialog) {
+				dialog.querySelector("p").textContent = lychee.locale["U2F_NOT_SECURE"];
+			},
 			buttons: {
 				cancel: {
 					title: lychee.locale["CLOSE"],
@@ -33,10 +34,14 @@ u2f.login = function () {
 		return;
 	}
 
-	new Larapass({
-		login: "/api/WebAuthn::login",
-		loginOptions: "/api/WebAuthn::login/gen",
-	})
+	new WebAuthn(
+		{
+			login: "/api/WebAuthn::login",
+			loginOptions: "/api/WebAuthn::login/options",
+		},
+		{},
+		false
+	)
 		.login({
 			user_id: 0, // for now it is only available to Admin user via a secret key shortcut.
 		})
@@ -55,12 +60,16 @@ u2f.register = function () {
 		return;
 	}
 
-	const larapass = new Larapass({
-		register: "/api/WebAuthn::register",
-		registerOptions: "/api/WebAuthn::register/gen",
-	});
-	if (Larapass.supportsWebAuthn()) {
-		larapass
+	const webauthn = new WebAuthn(
+		{
+			register: "/api/WebAuthn::register",
+			registerOptions: "/api/WebAuthn::register/options",
+		},
+		{},
+		false
+	);
+	if (WebAuthn.supportsWebAuthn()) {
+		webauthn
 			.register()
 			.then(function () {
 				loadingBar.show("success", lychee.locale["U2F_REGISTRATION_SUCCESS"]);
