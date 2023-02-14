@@ -34,7 +34,7 @@ const multiselect = {
 multiselect.position = null;
 
 multiselect.bind = function () {
-	$(".content").on("mousedown", (e) => {
+	$("#lychee_view_content").on("mousedown", (e) => {
 		if (e.which === 1) multiselect.show(e);
 	});
 
@@ -45,7 +45,7 @@ multiselect.bind = function () {
  * @returns {void}
  */
 multiselect.unbind = function () {
-	$(".content").off("mousedown");
+	$("#lychee_view_content").off("mousedown");
 };
 
 /**
@@ -80,7 +80,7 @@ multiselect.toggleItem = function (object, id) {
  */
 multiselect.addItem = function (object, id) {
 	if (album.isSmartID(id) || album.isSearchID(id)) return;
-	if (!lychee.rights.is_admin && albums.isShared(id)) return;
+	if (!lychee.rights.settings.can_edit && albums.isShared(id)) return;
 	if (multiselect.isSelected(id).selected === true) return;
 
 	let isAlbum = object.hasClass("album");

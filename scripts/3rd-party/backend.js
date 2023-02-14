@@ -9,13 +9,21 @@
  */
 
 /**
+ * @typedef Version
+ *
+ * @property {int} major
+ * @property {int} minor
+ * @property {int} patch
+ */
+
+/**
  * @typedef Photo
  *
  * @property {string}       id
  * @property {string}       title
  * @property {?string}      description
  * @property {string[]}     tags
- * @property {number}       is_public
+ * @property {boolean}      is_public
  * @property {?string}      type
  * @property {?string}      iso
  * @property {?string}      aperture
@@ -41,10 +49,9 @@
  * @property {?string}      live_photo_content_id
  * @property {?string}      live_photo_checksum
  * @property {SizeVariants} size_variants
- * @property {boolean}      is_downloadable
- * @property {boolean}      is_share_button_visible
  * @property {?string}      [next_photo_id]
  * @property {?string}      [previous_photo_id]
+ * @property {PhotoRightsDTO} rights
  */
 
 /**
@@ -91,14 +98,11 @@
  * @property {?string} cover_id
  * @property {?Thumb}  thumb
  * @property {string}  [owner_name] optional, only shown in authenticated mode
- * @property {boolean} is_public
- * @property {boolean} is_downloadable
- * @property {boolean} is_share_button_visible
  * @property {boolean} is_nsfw
- * @property {boolean} grants_full_photo
- * @property {boolean} requires_link
- * @property {boolean} has_password
- * @property {boolean} has_albums
+ * @property {AlbumRightsDTO} rights
+ * @property {AlbumProtectionPolicy} policy
+ * @property {boolean} num_albums
+ * @property {boolean} num_photos
  * @property {?string} min_taken_at
  * @property {?string} max_taken_at
  * @property {?SortingCriterion} sorting
@@ -116,13 +120,9 @@
  * @property {Photo[]}  photos
  * @property {?Thumb}   thumb
  * @property {string}   [owner_name] optional, only shown in authenticated mode
- * @property {boolean}  is_public
- * @property {boolean}  is_downloadable
- * @property {boolean}  is_share_button_visible
- * @property {boolean}  is_nsfw
- * @property {boolean}  grants_full_photo
- * @property {boolean}  requires_link
- * @property {boolean}  has_password
+ * @property {boolean} is_nsfw
+ * @property {AlbumRightsDTO} rights
+ * @property {AlbumProtectionPolicy} policy
  * @property {?string}  min_taken_at
  * @property {?string}  max_taken_at
  * @property {?SortingCriterion}  sorting
@@ -136,9 +136,8 @@
  * @property {string}  title
  * @property {Photo[]} [photos]
  * @property {?Thumb}  thumb
- * @property {boolean} is_public
- * @property {boolean} is_downloadable
- * @property {boolean} is_share_button_visible
+ * @property {AlbumRightsDTO} rights
+ * @property {AlbumProtectionPolicy} policy
  */
 
 /**
@@ -189,18 +188,20 @@
  * @property {?SmartAlbum} starred
  * @property {?SmartAlbum} public
  * @property {?SmartAlbum} recent
+ * @property {?SmartAlbum} on_this_day
  */
 
 /**
  * The IDs of the built-in, smart albums.
  *
- * @type {Readonly<{RECENT: string, STARRED: string, PUBLIC: string, UNSORTED: string}>}
+ * @type {Readonly<{RECENT: string, STARRED: string, PUBLIC: string, UNSORTED: string, ON_THIS_DAY: string}>}
  */
 const SmartAlbumID = Object.freeze({
 	UNSORTED: "unsorted",
 	STARRED: "starred",
 	PUBLIC: "public",
 	RECENT: "recent",
+	ON_THIS_DAY: "on_this_day",
 });
 
 /**
@@ -208,10 +209,18 @@ const SmartAlbumID = Object.freeze({
  *
  * @property {number}  id
  * @property {string}  username
- * @property {?string} email
- * @property {boolean} may_upload
- * @property {boolean} is_locked
+ * @property {string}  email
  * @property {boolean} has_token
+ */
+
+/**
+ * @typedef UserWithCapabilitiesDTO
+ *
+ * @property {number}  id
+ * @property {string}  username
+ * @property {boolean} may_administrate
+ * @property {boolean} may_upload
+ * @property {boolean} may_edit_own_settings
  */
 
 /**
@@ -227,12 +236,6 @@ const SmartAlbumID = Object.freeze({
  * @property {?string} title - album title
  * @property {Photo[]} photos
  * @property {?string} track_url - URL to GPX track
- */
-
-/**
- * @typedef EMailData
- *
- * @property {?string} email
  */
 
 /**
@@ -278,76 +281,67 @@ const SmartAlbumID = Object.freeze({
  * @typedef InitializationData
  *
  * @property {?User} user
- * @property {{is_admin: boolean, is_locked: boolean, may_upload: boolean}} rights
- * @property {number} update_json - version number of latest available update
+ * @property {GlobalRightsDTO} rights
+ * @property {boolean} update_json
  * @property {boolean} update_available
  * @property {Object.<string, string>} locale
  * @property {ConfigurationData} config
- * @property {DeviceConfiguration} config_device
+ */
+
+/**
+ * @typedef Feed
+ *
+ * @property {string} url
+ * @property {string} mimetype
+ * @property {string} title
  */
 
 /**
  * @typedef ConfigurationData
  *
+ * @property {string}   album_decoration
+ * @property {string}   album_decoration_orientation
  * @property {string}   album_subtitle_type
- * @property {string}   check_for_updates       - actually a boolean
+ * @property {string}   allow_username_change    - actually a boolean
+ * @property {string}   check_for_updates        - actually a boolean
  * @property {string}   [default_license]
- * @property {string}   [delete_imported]       - actually a boolean
- * @property {string}   downloadable            - actually a boolean
+ * @property {string}   [delete_imported]        - actually a boolean
+ * @property {string}   grants_download          - actually a boolean
  * @property {string}   [dropbox_key]
- * @property {string}   editor_enabled          - actually a boolean
- * @property {string}   full_photo              - actually a boolean
+ * @property {string}   editor_enabled           - actually a boolean
+ * @property {string}   rss_enable               - actually a boolean
+ * @property {Feed[]}   rss_feeds                - array of RSS feeds
+ * @property {string}   grants_full_photo_access - actually a boolean
  * @property {string}   image_overlay_type
- * @property {string}   landing_page_enable     - actually a boolean
+ * @property {string}   landing_page_enable      - actually a boolean
  * @property {string}   lang
  * @property {string[]} lang_available
- * @property {string}   layout                  - actually a number: `0`, `1` or `2`
+ * @property {string}   layout                   - actually a number: `0`, `1` or `2`
  * @property {string}   [location]
- * @property {string}   location_decoding       - actually a boolean
- * @property {string}   location_show           - actually a boolean
- * @property {string}   location_show_public    - actually a boolean
- * @property {string}   map_display             - actually a boolean
- * @property {string}   map_display_direction   - actually a boolean
- * @property {string}   map_display_public      - actually a boolean
- * @property {string}   map_include_subalbums   - actually a boolean
+ * @property {string}   location_decoding        - actually a boolean
+ * @property {string}   location_show            - actually a boolean
+ * @property {string}   location_show_public     - actually a boolean
+ * @property {string}   map_display              - actually a boolean
+ * @property {string}   map_display_direction    - actually a boolean
+ * @property {string}   map_display_public       - actually a boolean
+ * @property {string}   map_include_subalbums    - actually a boolean
  * @property {string}   map_provider
- * @property {string}   new_photos_notification - actually a boolean
- * @property {string}   nsfw_blur               - actually a boolean
- * @property {string}   nsfw_visible            - actually a boolean
- * @property {string}   nsfw_warning            - actually a boolean
- * @property {string}   nsfw_warning_admin      - actually a boolean
- * @property {string}   public_photos_hidden    - actually a boolean
- * @property {string}   public_search           - actually a boolean
- * @property {string}   share_button_visible    - actually a boolean
- * @property {string}   [skip_duplicates]       - actually a boolean
+ * @property {string}   new_photos_notification  - actually a boolean
+ * @property {string}   nsfw_blur                - actually a boolean
+ * @property {string}   nsfw_visible             - actually a boolean
+ * @property {string}   nsfw_warning             - actually a boolean
+ * @property {string}   nsfw_warning_admin       - actually a boolean
+ * @property {string}   nsfw_banner_override     - custom HTML instead of the default NSFW banner
+ * @property {string}   public_photos_hidden     - actually a boolean
+ * @property {string}   public_search            - actually a boolean
+ * @property {string}   share_button_visible     - actually a boolean
+ * @property {string}   [skip_duplicates]        - actually a boolean
  * @property {SortingCriterion} sorting_albums
  * @property {SortingCriterion} sorting_photos
- * @property {string}   swipe_tolerance_x       - actually a number
- * @property {string}   swipe_tolerance_y       - actually a number
- * @property {string}   upload_processing_limit - actually a number
- * @property {string}   version                 - a string of 6 digits without separating dots, i.e. version 4.6.3 is reported as `'040603'`
- */
-
-/**
- * @typedef DeviceConfiguration
- *
- * @property {string}  device_type
- * @property {boolean} header_auto_hide
- * @property {boolean} active_focus_on_page_load
- * @property {boolean} enable_button_visibility
- * @property {boolean} enable_button_share
- * @property {boolean} enable_button_archive
- * @property {boolean} enable_button_move
- * @property {boolean} enable_button_trash
- * @property {boolean} enable_button_fullscreen
- * @property {boolean} enable_button_download
- * @property {boolean} enable_button_add
- * @property {boolean} enable_button_more
- * @property {boolean} enable_button_rotate
- * @property {boolean} enable_close_tab_on_esc
- * @property {boolean} enable_contextmenu_header
- * @property {boolean} hide_content_during_imgview
- * @property {boolean} enable_tabindex
+ * @property {string}   swipe_tolerance_x        - actually a number
+ * @property {string}   swipe_tolerance_y        - actually a number
+ * @property {string}   upload_processing_limit  - actually a number
+ * @property {?Version} version                  - Version number
  */
 
 /**
@@ -382,4 +376,92 @@ const SmartAlbumID = Object.freeze({
  * @property {number} severity - either `'debug'`, `'info'`, `'notice'`, `'warning'`, `'error'`, `'critical'` or `'emergency'`
  * @property {?string} path - the path to the affected file or directory
  * @property {string} message - a message text
+ */
+
+/**
+ * The JSON object for Policy on Albums
+ *
+ * @typedef AlbumProtectionPolicy
+ *
+ * @property {is_nsfw} boolean
+ * @property {boolean} is_public
+ * @property {boolean} is_link_required
+ * @property {boolean} is_password_required
+ * @property {boolean} grants_full_photo_access
+ * @property {boolean} grants_download
+ */
+
+/**
+ * The JSON object for Rights on users management
+ *
+ * @typedef UserManagementRightsDTO
+ *
+ * @property {boolean} can_create
+ * @property {boolean} can_list
+ * @property {boolean} can_edit
+ * @property {boolean} can_delete
+ */
+
+/**
+ * The JSON object for Rights on a User
+ *
+ * @typedef UserRightsDTO
+ *
+ * @property {boolean} can_edit
+ * @property {boolean} can_use_2fa
+ */
+
+/**
+ * The JSON object for Rights on Settings
+ *
+ * @typedef SettingsRightsDTO
+ *
+ * @property {boolean} can_edit
+ * @property {boolean} can_see_logs
+ * @property {boolean} can_clear_logs
+ * @property {boolean} can_see_diagnostics
+ * @property {boolean} can_update
+ */
+
+/**
+ * The JSON object for Rights on Settings
+ *
+ * @typedef RootAlbumRightsDTO
+ *
+ * @property {boolean} can_edit
+ * @property {boolean} can_upload
+ * @property {boolean} can_download
+ * @property {boolean} can_import_from_server
+ */
+
+/**
+ * The JSON object for Rights on Photos
+ *
+ * @typedef PhotoRightsDTO
+ *
+ * @property {boolean} can_edit
+ * @property {boolean} can_download
+ * @property {boolean} can_access_full_photo
+ */
+
+/**
+ * The JSON object for Rights on Album
+ *
+ * @typedef AlbumRightsDTO
+ *
+ * @property {boolean} can_edit
+ * @property {boolean} can_share_with_users
+ * @property {boolean} can_download
+ * @property {boolean} can_upload
+ */
+
+/**
+ * The JSON object for Rights on Global Application
+ *
+ * @typedef GlobalRightsDTO
+ *
+ * @property {RootAlbumRightsDTO} root_album
+ * @property {SettingsRightsDTO} settings
+ * @property {UserManagementRightsDTO} user_management
+ * @property {UserRightsDTO} user
  */

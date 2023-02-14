@@ -7,7 +7,7 @@
  */
 let sidebar = {
 	/** @type {jQuery} */
-	_dom: $(".sidebar"),
+	_dom: $("#lychee_sidebar_container"),
 	types: {
 		DEFAULT: 0,
 		TAGS: 1,
@@ -34,7 +34,7 @@ sidebar.dom = function (selector) {
  * @returns {void}
  */
 sidebar.bind = function () {
-	const eventName = lychee.getEventName();
+	const eventName = "click";
 
 	sidebar
 		.dom("#edit_title")
@@ -50,6 +50,13 @@ sidebar.bind = function () {
 		.on(eventName, function () {
 			if (visible.photo()) photo.setDescription(photo.getID());
 			else if (visible.album()) album.setDescription(album.getID());
+		});
+
+	sidebar
+		.dom("#edit_uploaded")
+		.off(eventName)
+		.on(eventName, function () {
+			if (visible.photo()) photo.setCreatedAt(photo.getID());
 		});
 
 	sidebar
@@ -136,12 +143,7 @@ sidebar.keepSidebarVisible = function () {
 sidebar.toggle = function (is_user_initiated) {
 	if (visible.sidebar() || visible.sidebarbutton()) {
 		header.dom(".button--info").toggleClass("active");
-		lychee.content.toggleClass("content--sidebar");
-		lychee.imageview.toggleClass("image--sidebar");
-		if (typeof view !== "undefined") view.album.content.justify(album.json ? album.json.photos : []);
 		sidebar.dom().toggleClass("active");
-		if (photo.updateSizeLivePhotoDuringAnimation) photo.updateSizeLivePhotoDuringAnimation();
-
 		if (is_user_initiated) sessionStorage.setItem("keepSidebarVisible", visible.sidebar() ? "true" : "false");
 	}
 };
@@ -229,7 +231,8 @@ sidebar.secondsToHMS = function (d) {
 sidebar.createStructure.photo = function (data) {
 	if (!data) return [];
 
-	let editable = typeof album !== "undefined" ? album.isUploadable() : false;
+	let editable = data.rights.can_edit;
+
 	let hasExif = !!data.taken_at || !!data.make || !!data.model || !!data.shutter || !!data.aperture || !!data.focal || !!data.iso;
 	// Attributes for geo-position are nullable floats.
 	// The geo-position 0°00'00'', 0°00'00'' at zero altitude is very unlikely
@@ -284,7 +287,7 @@ sidebar.createStructure.photo = function (data) {
 		type: sidebar.types.DEFAULT,
 		rows: [
 			{ title: lychee.locale["PHOTO_TITLE"], kind: "title", value: data.title, editable },
-			{ title: lychee.locale["PHOTO_UPLOADED"], kind: "uploaded", value: lychee.locale.printDateTime(data.created_at) },
+			{ title: lychee.locale["PHOTO_UPLOADED"], kind: "uploaded", value: lychee.locale.printDateTime(data.created_at), editable },
 			{ title: lychee.locale["PHOTO_DESCRIPTION"], kind: "description", value: data.description ? data.description : "", editable },
 		],
 	};
@@ -419,10 +422,12 @@ sidebar.createStructure.photo = function (data) {
 		structure.image,
 		structure.tags,
 		structure.exif,
-		structure.location,
-		structure.license,
+		structure.location
 	];
 
+	if (license) {
+		structure_ret.push(structure.license);
+	}
 	if (!lychee.publicMode) {
 		structure_ret.push(structure.sharing);
 	}
@@ -437,13 +442,12 @@ sidebar.createStructure.photo = function (data) {
 sidebar.createStructure.album = function (data) {
 	if (!data) return [];
 
-	let editable = album.isUploadable();
+	let editable = data.rights.can_edit;
 	let structure = {};
-	let isPublic = data.is_public ? lychee.locale["ALBUM_SHR_YES"] : lychee.locale["ALBUM_SHR_NO"];
-	let requiresLink = data.requires_link ? lychee.locale["ALBUM_SHR_YES"] : lychee.locale["ALBUM_SHR_NO"];
-	let isDownloadable = data.is_downloadable ? lychee.locale["ALBUM_SHR_YES"] : lychee.locale["ALBUM_SHR_NO"];
-	let isShareButtonVisible = data.is_share_button_visible ? lychee.locale["ALBUM_SHR_YES"] : lychee.locale["ALBUM_SHR_NO"];
-	let hasPassword = data.has_password ? lychee.locale["ALBUM_SHR_YES"] : lychee.locale["ALBUM_SHR_NO"];
+	let isPublic = !!data.policy && data.policy.is_public ? lychee.locale["ALBUM_SHR_YES"] : lychee.locale["ALBUM_SHR_NO"];
+	let requiresLink = !!data.policy && data.policy.is_link_required ? lychee.locale["ALBUM_SHR_YES"] : lychee.locale["ALBUM_SHR_NO"];
+	let isDownloadable = !!data.policy && data.policy.grant_download ? lychee.locale["ALBUM_SHR_YES"] : lychee.locale["ALBUM_SHR_NO"];
+	let hasPassword = !!data.policy && data.policy.is_password_required ? lychee.locale["ALBUM_SHR_YES"] : lychee.locale["ALBUM_SHR_NO"];
 	let license = "";
 	let sorting = "";
 
@@ -511,7 +515,6 @@ sidebar.createStructure.album = function (data) {
 			{ title: lychee.locale["ALBUM_PUBLIC"], kind: "public", value: isPublic },
 			{ title: lychee.locale["ALBUM_HIDDEN"], kind: "hidden", value: requiresLink },
 			{ title: lychee.locale["ALBUM_DOWNLOADABLE"], kind: "downloadable", value: isDownloadable },
-			{ title: lychee.locale["ALBUM_SHARE_BUTTON_VISIBLE"], kind: "share_button_visible", value: isShareButtonVisible },
 			{ title: lychee.locale["ALBUM_PASSWORD"], kind: "password", value: hasPassword },
 		],
 	};
@@ -527,7 +530,10 @@ sidebar.createStructure.album = function (data) {
 	};
 
 	// Construct all parts of the structure
-	let structure_ret = [structure.basics, structure.album, structure.license];
+	let structure_ret = [structure.basics, structure.album];
+	if (license) {
+		structure_ret.push(structure.license);
+	}
 	if (!lychee.publicMode) {
 		structure_ret.push(structure.share);
 	}
@@ -588,7 +594,7 @@ sidebar.render = function (structure) {
 			const rawValue = row.value;
 
 			// don't show rows which are empty and cannot be edited
-			if ((rawValue === "" || rawValue == null) && row.editable === false) {
+			if ((rawValue === "" || rawValue == null) && row.editable !== true) {
 				return;
 			}
 

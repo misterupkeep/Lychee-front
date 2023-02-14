@@ -3,15 +3,17 @@
  */
 
 $(document).ready(function () {
-	$("#sensitive_warning").hide();
-
 	// Event Name
-	const eventName = lychee.getEventName();
+	const eventName = "click touchend";
 
 	// Set API error handler
 	api.onError = lychee.handleAPIError;
 
-	$("html").css("visibility", "visible");
+	// Make the application visible; initially the `<body>` has an inline
+	// style `display: none` to avoid an ugly flash of massively over-sized
+	// icons from the header in case the HTML engine starts rendering before
+	// the (asynchronously loaded) CSS becomes available.
+	document.querySelector("body").style.display = null;
 
 	// Multiselect
 	multiselect.bind();
@@ -315,6 +317,24 @@ $(document).ready(function () {
 			},
 			false
 		)
+		// In the long run, the "drop" event should not be defined on the
+		// global document element, but on the `DIV` which corresponds to the
+		// view onto which something is dropped.
+		// This would also avoid this highly fragile condition below.
+		// For example, in order to avoid that a photo unintentionally ends
+		// up in the root album when someone drops a photo while the
+		// setting screen is opened, we check for `!visible.config()`.
+		// This would simply not be necessary, if the drop event was directly
+		// defined on the albums view where it belongs.
+		// The conditions whether a user is allowed to upload to the root
+		// album (cp. `visible.albums()` below) or to a regular album
+		// (cp. `visible.album()` below) are slightly different.
+		// Nonetheless, we only have a single method `album.isUploadable`
+		// which tries to cover both cases and is prone to fail in certain
+		// corner cases.
+		// If the drop event was defined on the DIV for the root view and on
+		// the DIV for an album view, the whole problem would not exist.
+		// TODO: Fix that
 		.on(
 			"drop",
 			/** @param {jQuery.Event} e */ function (e) {
@@ -388,18 +408,17 @@ $(document).ready(function () {
 	$("#sensitive_warning").on("click", view.album.nsfw_warning.next);
 
 	/**
-	 * @param {number} scrollPos
 	 * @returns {void}
 	 */
-	const rememberScrollPage = function (scrollPos) {
+	const rememberScrollPage = function () {
 		if ((visible.albums() && !visible.search()) || visible.album()) {
-			let urls = JSON.parse(localStorage.getItem("scroll"));
+			let urls = JSON.parse(sessionStorage.getItem("scroll"));
 			if (urls == null || urls.length < 1) {
 				urls = {};
 			}
 
-			let urlWindow = window.location.href;
-			let urlScroll = scrollPos;
+			const urlWindow = window.location.href;
+			const urlScroll = $("#lychee_view_container").scrollTop();
 
 			urls[urlWindow] = urlScroll;
 
@@ -407,22 +426,18 @@ $(document).ready(function () {
 				delete urls[urlWindow];
 			}
 
-			localStorage.setItem("scroll", JSON.stringify(urls));
+			sessionStorage.setItem("scroll", JSON.stringify(urls));
 		}
 	};
 
-	$(window)
-		// resize
-		.on("resize", function () {
-			if (visible.album()) view.album.content.justify(album.json ? album.json.photos : []);
-			if (visible.search()) view.album.content.justify(search.json.photos);
-			if (visible.photo()) view.photo.onresize();
-		})
-		// remember scroll positions
-		.on("scroll", function () {
-			let topScroll = $(window).scrollTop();
-			rememberScrollPage(topScroll);
-		});
+	$(window).on("resize", function () {
+		if (visible.photo()) view.photo.onresize();
+		frame.resize();
+	});
+
+	$("#lychee_view_container").on("scroll", function () {
+		rememberScrollPage();
+	});
 
 	// Init
 	lychee.init();

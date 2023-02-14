@@ -7,7 +7,7 @@
  * @property {jQuery} _dom
  */
 const leftMenu = {
-	_dom: $(".leftMenu"),
+	_dom: $("#lychee_left_menu_container"),
 };
 
 /**
@@ -20,36 +20,58 @@ leftMenu.dom = function (selector) {
 };
 
 /**
- * Note: on mobile we use a context menu instead; please make sure that
- * contextMenu.config is kept in sync with any changes here!
- *
+ * Build left menu
  * @returns {void}
  */
 leftMenu.build = function () {
 	let html = lychee.html`
-		<a id="text_settings_close" class="closetxt" data-tabindex="-1">${lychee.locale["CLOSE"]}</a>
-		<a id="button_settings_close" class="closebtn" data-tabindex="20">&times;</a>
-		<a class="linkMenu" id="button_settings_open" data-tabindex="-1"><svg class="iconic"><use xlink:href="#cog"></use></svg>${lychee.locale["SETTINGS"]}</a>`;
+		<a class="linkMenu" id="button_settings_close" data-tabindex="-1">${build.iconic("chevron-left")}${lychee.locale["CLOSE"]}</a>
+	`;
+
+	if (lychee.rights.settings.can_edit || lychee.rights.user.can_edit) {
+		html += lychee.html`
+		<a class="linkMenu" id="button_settings_open" data-tabindex="-1"><svg class="iconic"><use xlink:href="#cog"></use></svg>${lychee.locale["SETTINGS"]}</a>
+		`;
+	}
 	if (lychee.new_photos_notification) {
 		html += lychee.html`
 		<a class="linkMenu" id="button_notifications" data-tabindex="-1">${build.iconic("bell")}${lychee.locale["NOTIFICATIONS"]} </a>
 		`;
 	}
-	html += lychee.html`
+	if (lychee.rights.user_management.can_edit) {
+		html += lychee.html`
 		<a class="linkMenu" id="button_users" data-tabindex="-1">${build.iconic("person")}${lychee.locale["USERS"]} </a>
+		`;
+	}
+	if (lychee.rights.user.can_use_2fa) {
+		html += lychee.html`
 		<a class="linkMenu" id="button_u2f" data-tabindex="-1">${build.iconic("key")}${lychee.locale["U2F"]} </a>
-		<a class="linkMenu" id="button_sharing" data-tabindex="-1">${build.iconic("cloud")}${lychee.locale["SHARING"]}</a>`;
-	html += lychee.html`
+		`;
+	}
+	if (lychee.rights.root_album.can_upload) {
+		html += lychee.html`
+		<a class="linkMenu" id="button_sharing" data-tabindex="-1">${build.iconic("cloud")}${lychee.locale["SHARING"]}</a>
+		`;
+	}
+	if (lychee.rights.settings.can_see_logs) {
+		html += lychee.html`
 		<a class="linkMenu" id="button_logs" data-tabindex="-1">${build.iconic("align-left")}${lychee.locale["LOGS"]}</a>
+		`;
+	}
+	if (lychee.rights.settings.can_see_diagnostics) {
+		html += lychee.html`
 		<a class="linkMenu" id="button_diagnostics" data-tabindex="-1">${build.iconic("wrench")}${lychee.locale["DIAGNOSTICS"]}</a>
+		`;
+	}
+	html += lychee.html`
 		<a class="linkMenu" id="button_about" data-tabindex="-1">${build.iconic("info")}${lychee.locale["ABOUT_LYCHEE"]}</a>
 		<a class="linkMenu" id="button_signout" data-tabindex="21">${build.iconic("account-logout")}${lychee.locale["SIGN_OUT"]}</a>`;
-	if (lychee.update_available) {
+	if (lychee.rights.settings.can_update && lychee.update_available) {
 		html += lychee.html`
 		<a class="linkMenu" id="button_update"  data-tabindex="-1">${build.iconic("timer")}${lychee.locale["UPDATE_AVAILABLE"]}</a>
 		`;
 	}
-	leftMenu._dom.html(html);
+	leftMenu.dom("#lychee_left_menu").html(html);
 };
 
 /** Set the width of the side navigation to 250px and the left margin of the page content to 250px
@@ -57,16 +79,12 @@ leftMenu.build = function () {
  * @returns {void}
  */
 leftMenu.open = function () {
-	leftMenu._dom.addClass("leftMenu__visible");
-	lychee.content.addClass("leftMenu__open");
-	lychee.footer.addClass("leftMenu__open");
-	header.dom(".header__title").addClass("leftMenu__open");
-	loadingBar.dom().addClass("leftMenu__open");
+	leftMenu.dom().addClass("visible");
 
 	// Make background unfocusable
 	tabindex.makeUnfocusable(header.dom());
 	tabindex.makeUnfocusable(lychee.content);
-	tabindex.makeFocusable(leftMenu._dom);
+	tabindex.makeFocusable(leftMenu.dom());
 	$("#button_signout").focus();
 
 	multiselect.unbind();
@@ -78,19 +96,29 @@ leftMenu.open = function () {
  * @returns {void}
  */
 leftMenu.close = function () {
-	leftMenu._dom.removeClass("leftMenu__visible");
-	lychee.content.removeClass("leftMenu__open");
-	lychee.footer.removeClass("leftMenu__open");
-	$(".content").removeClass("leftMenu__open");
-	header.dom(".header__title").removeClass("leftMenu__open");
-	loadingBar.dom().removeClass("leftMenu__open");
+	leftMenu.dom().removeClass("visible");
 
 	tabindex.makeFocusable(header.dom());
 	tabindex.makeFocusable(lychee.content);
-	tabindex.makeUnfocusable(leftMenu._dom);
+	tabindex.makeUnfocusable(leftMenu.dom());
 
 	multiselect.bind();
 	lychee.load();
+};
+
+/**
+ * Close the menu if it's in responsive mode.
+ *
+ * @returns {void}
+ */
+leftMenu.closeIfResponsive = function () {
+	if (window.matchMedia("only screen and (max-width: 567px), only screen and (max-width: 640px) and (orientation: portrait)").matches) {
+		leftMenu.dom().removeClass("visible");
+
+		tabindex.makeFocusable(header.dom());
+		tabindex.makeFocusable(lychee.content);
+		tabindex.makeUnfocusable(leftMenu.dom());
+	}
 };
 
 /**
@@ -98,11 +126,13 @@ leftMenu.close = function () {
  */
 leftMenu.bind = function () {
 	// Event Name
-	let eventName = lychee.getEventName();
+	const eventName = "click";
 
 	leftMenu.dom("#button_settings_close").on(eventName, leftMenu.close);
-	leftMenu.dom("#text_settings_close").on(eventName, leftMenu.close);
-	leftMenu.dom("#button_settings_open").on(eventName, settings.open);
+	leftMenu.dom("#button_settings_open").on(eventName, () => {
+		leftMenu.closeIfResponsive();
+		settings.open();
+	});
 	leftMenu.dom("#button_signout").on(eventName, lychee.logout);
 	leftMenu.dom("#button_logs").on(eventName, leftMenu.Logs);
 	leftMenu.dom("#button_diagnostics").on(eventName, leftMenu.Diagnostics);
@@ -118,6 +148,7 @@ leftMenu.bind = function () {
  * @returns {void}
  */
 leftMenu.Logs = function () {
+	leftMenu.closeIfResponsive();
 	view.logs.init();
 };
 
@@ -125,6 +156,7 @@ leftMenu.Logs = function () {
  * @returns {void}
  */
 leftMenu.Diagnostics = function () {
+	leftMenu.closeIfResponsive();
 	view.diagnostics.init();
 };
 
@@ -132,6 +164,7 @@ leftMenu.Diagnostics = function () {
  * @returns {void}
  */
 leftMenu.Update = function () {
+	leftMenu.closeIfResponsive();
 	view.update.init();
 };
 
@@ -139,6 +172,7 @@ leftMenu.Update = function () {
  * @returns {void}
  */
 leftMenu.Notifications = function () {
+	leftMenu.closeIfResponsive();
 	notifications.load();
 };
 
@@ -146,6 +180,7 @@ leftMenu.Notifications = function () {
  * @returns {void}
  */
 leftMenu.Users = function () {
+	leftMenu.closeIfResponsive();
 	users.list();
 };
 
@@ -153,6 +188,7 @@ leftMenu.Users = function () {
  * @returns {void}
  */
 leftMenu.u2f = function () {
+	leftMenu.closeIfResponsive();
 	u2f.list();
 };
 
@@ -160,5 +196,6 @@ leftMenu.u2f = function () {
  * @returns {void}
  */
 leftMenu.Sharing = function () {
+	leftMenu.closeIfResponsive();
 	sharing.list();
 };

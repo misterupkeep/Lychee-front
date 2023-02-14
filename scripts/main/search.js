@@ -25,8 +25,7 @@ const SearchAlbumIDPrefix = "search";
  * @property {TagAlbum[]} tag_albums            - the found tag albums
  * @property {?Thumb}  thumb                    - always `null`; just a dummy entry, because all other albums {@link Album}, {@link TagAlbum}, {@link SmartAlbum} have it
  * @property {boolean} is_public                - always `false`; just a dummy entry, because all other albums {@link Album}, {@link TagAlbum}, {@link SmartAlbum} have it
- * @property {boolean} is_downloadable          - always `false`; just a dummy entry, because all other albums {@link Album}, {@link TagAlbum}, {@link SmartAlbum} have it
- * @property {boolean} is_share_button_visible  - always `false`; just a dummy entry, because all other albums {@link Album}, {@link TagAlbum}, {@link SmartAlbum} have it
+ * @property {boolean} grant_download          - always `false`; just a dummy entry, because all other albums {@link Album}, {@link TagAlbum}, {@link SmartAlbum} have it
  */
 
 /**
@@ -63,9 +62,8 @@ search.find = function (term) {
 			albums: search.json.albums,
 			tag_albums: search.json.tag_albums,
 			thumb: null,
-			is_public: false,
-			is_downloadable: false,
-			is_share_button_visible: false,
+			rights: { can_download: false },
+			policy: { is_public: false },
 		};
 
 		let albumsData = "";
@@ -113,7 +111,7 @@ search.find = function (term) {
 				: build.divider(albums_divider) + albumsData + build.divider(photos_divider) + photosData;
 
 		$(".no_content").remove();
-		lychee.animate($(".content"), "contentZoomOut");
+		lychee.animate(lychee.content, "contentZoomOut");
 
 		setTimeout(() => {
 			if (visible.photo()) view.photo.hide();
@@ -124,7 +122,7 @@ search.find = function (term) {
 
 			if (html === "") {
 				lychee.content.html("");
-				$("body").append(build.no_content("magnifying-glass"));
+				lychee.content.append(build.no_content("magnifying-glass"));
 			} else {
 				lychee.content.html(html);
 				// Here we exploit the layout method of an album although
@@ -133,12 +131,13 @@ search.find = function (term) {
 				// `view.photos` (note the plural form) which takes care of
 				// all photo listings independent of the surrounding "thing"
 				// (i.e. regular album, tag album, search result)
-				view.album.content.justify(search.json.photos);
-				lychee.animate(lychee.content, "contentZoomIn");
+				setTimeout(function () {
+					view.album.content.justify();
+					lychee.animate(lychee.content, "contentZoomIn");
+					$("#lychee_view_container").scrollTop(0);
+				}, 0);
 			}
-			lychee.setTitle(lychee.locale["SEARCH_RESULTS"], false);
-
-			$(window).scrollTop(0);
+			lychee.setMetaData(lychee.locale["SEARCH_RESULTS"]);
 		}, 300);
 	};
 

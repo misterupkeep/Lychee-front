@@ -2,7 +2,44 @@
  * @description Responsible to reflect data changes to the UI.
  */
 
-const view = {};
+const view = {
+	/** @type {ResizeObserver} */
+	resizeObserver: (function () {
+		/**
+		 * @type {HTMLDivElement}
+		 */
+		const viewContainer = document.getElementById("lychee_view_container");
+
+		const resizeHandler = (function () {
+			let viewContainerWidth = 0;
+
+			return function () {
+				// Avoid infinite loops
+				// The layout method `view.album.content.justify()` below will
+				// change the height of the container as the height depends on
+				// the amount of content.
+				// Hence, `view.album.content.justify()` re-triggers the
+				// event handler.
+				// However, we are only interested into changes of the width,
+				// which is independent of content but solely depends on
+				// window size.
+				// We bail out early if the width has not changed since last
+				// time.
+				if (viewContainer.clientWidth === viewContainerWidth) return;
+				viewContainerWidth = viewContainer.clientWidth;
+				view.album.content.justify();
+				if (photo.isLivePhotoInitialized()) {
+					photo.livePhotosObject.updateSize();
+				}
+			};
+		})();
+
+		const observer = new ResizeObserver(resizeHandler);
+		observer.observe(viewContainer);
+
+		return observer;
+	})(),
+};
 
 view.albums = {
 	/** @returns {void} */
@@ -16,9 +53,9 @@ view.albums = {
 	/** @returns {void} */
 	title: function () {
 		if (lychee.landing_page_enable) {
-			lychee.setTitle("", false);
+			lychee.setMetaData();
 		} else {
-			lychee.setTitle(lychee.locale["ALBUMS"], false);
+			lychee.setMetaData(lychee.locale["ALBUMS"]);
 		}
 	},
 
@@ -37,38 +74,43 @@ view.albums = {
 					albums.json.smart_albums.recent ||
 					albums.json.smart_albums.starred ||
 					albums.json.smart_albums.unsorted ||
+					albums.json.smart_albums.on_this_day ||
 					albums.json.tag_albums.length > 0)
 			) {
 				smartData = build.divider(lychee.locale["SMART_ALBUMS"]);
 			}
 			if (albums.json.smart_albums.unsorted) {
 				albums.parse(albums.json.smart_albums.unsorted);
-				smartData += build.album(albums.json.smart_albums.unsorted);
+				smartData += build.album(albums.json.smart_albums.unsorted, !lychee.rights.root_album.can_edit);
 			}
 			if (albums.json.smart_albums.public) {
 				albums.parse(albums.json.smart_albums.public);
-				smartData += build.album(albums.json.smart_albums.public);
+				smartData += build.album(albums.json.smart_albums.public, !lychee.rights.root_album.can_edit);
 			}
 			if (albums.json.smart_albums.starred) {
 				albums.parse(albums.json.smart_albums.starred);
-				smartData += build.album(albums.json.smart_albums.starred);
+				smartData += build.album(albums.json.smart_albums.starred, !lychee.rights.root_album.can_edit);
 			}
 			if (albums.json.smart_albums.recent) {
 				albums.parse(albums.json.smart_albums.recent);
-				smartData += build.album(albums.json.smart_albums.recent);
+				smartData += build.album(albums.json.smart_albums.recent, !lychee.rights.root_album.can_edit);
+			}
+			if (albums.json.smart_albums.on_this_day) {
+				albums.parse(albums.json.smart_albums.on_this_day);
+				smartData += build.album(albums.json.smart_albums.on_this_day);
 			}
 
 			// Tag albums
 			tagAlbumsData += albums.json.tag_albums.reduce(function (html, tagAlbum) {
 				albums.parse(tagAlbum);
-				return html + build.album(tagAlbum);
+				return html + build.album(tagAlbum, !lychee.rights.root_album.can_edit);
 			}, "");
 
 			// Albums
 			if (lychee.publicMode === false && albums.json.albums.length > 0) albumsData = build.divider(lychee.locale["ALBUMS"]);
 			albumsData += albums.json.albums.reduce(function (html, album) {
 				albums.parse(album);
-				return html + build.album(album);
+				return html + build.album(album, !lychee.rights.root_album.can_edit);
 			}, "");
 
 			let current_owner = "";
@@ -79,22 +121,18 @@ view.albums = {
 					html += build.divider(album.owner_name);
 					current_owner = album.owner_name;
 				}
-				return html + build.album(album, !lychee.rights.is_admin);
+				return html + build.album(album, !lychee.rights.settings.can_edit);
 			}, "");
 
 			if (smartData === "" && tagAlbumsData === "" && albumsData === "" && sharedData === "") {
 				lychee.content.html("");
-				$("body").append(build.no_content("eye"));
+				lychee.content.append(build.no_content("eye"));
 			} else {
 				lychee.content.html(smartData + tagAlbumsData + albumsData + sharedData);
 			}
 
 			album.apply_nsfw_filter();
-
-			// Restore scroll position
-			const urls = JSON.parse(localStorage.getItem("scroll"));
-			const urlWindow = window.location.href;
-			$(window).scrollTop(urls != null && urls[urlWindow] ? urls[urlWindow] : 0);
+			view.album.content.restoreScroll();
 		},
 
 		/**
@@ -153,20 +191,23 @@ view.album = {
 		if ((visible.album() || !album.json.init) && !visible.photo()) {
 			switch (album.getID()) {
 				case SmartAlbumID.STARRED:
-					lychee.setTitle(lychee.locale["STARRED"], true);
+					lychee.setMetaData(lychee.locale["STARRED"]);
 					break;
 				case SmartAlbumID.PUBLIC:
-					lychee.setTitle(lychee.locale["PUBLIC"], true);
+					lychee.setMetaData(lychee.locale["PUBLIC"]);
 					break;
 				case SmartAlbumID.RECENT:
-					lychee.setTitle(lychee.locale["RECENT"], true);
+					lychee.setMetaData(lychee.locale["RECENT"]);
 					break;
 				case SmartAlbumID.UNSORTED:
-					lychee.setTitle(lychee.locale["UNSORTED"], true);
+					lychee.setMetaData(lychee.locale["UNSORTED"]);
+					break;
+				case SmartAlbumID.ON_THIS_DAY:
+					lychee.setMetaData(lychee.locale["ON_THIS_DAY"]);
 					break;
 				default:
 					if (album.json.init) sidebar.changeAttr("title", album.json.title);
-					lychee.setTitle(album.json.title, true);
+					lychee.setMetaData(album.json.title, true, album.json.description);
 					break;
 			}
 		}
@@ -176,21 +217,21 @@ view.album = {
 		/** @returns {void} */
 		init: function () {
 			if (!lychee.nsfw_warning) {
-				$("#sensitive_warning").hide();
+				$("#sensitive_warning").removeClass("active");
 				return;
 			}
 
-			if (album.json.is_nsfw && !lychee.nsfw_unlocked_albums.includes(album.json.id)) {
-				$("#sensitive_warning").show();
+			if (album.json.policy.is_nsfw && !lychee.nsfw_unlocked_albums.includes(album.json.id)) {
+				$("#sensitive_warning").addClass("active");
 			} else {
-				$("#sensitive_warning").hide();
+				$("#sensitive_warning").removeClass("active");
 			}
 		},
 
 		/** @returns {void} */
 		next: function () {
 			lychee.nsfw_unlocked_albums.push(album.json.id);
-			$("#sensitive_warning").hide();
+			$("#sensitive_warning").removeClass("active");
 		},
 	},
 
@@ -204,18 +245,29 @@ view.album = {
 			if (album.json.albums) {
 				album.json.albums.forEach(function (_album) {
 					albums.parse(_album);
-					albumsData += build.album(_album, !album.isUploadable());
+					albumsData += build.album(_album, !album.json.rights.can_edit);
 				});
 			}
 			if (album.json.photos) {
 				// Build photos
 				album.json.photos.forEach(function (_photo) {
-					photosData += build.photo(_photo, !album.isUploadable());
+					photosData += build.photo(_photo, !album.json.rights.can_edit);
 				});
 			}
 
 			if (photosData !== "") {
 				if (lychee.layout === 1) {
+					// The CSS class 'laying-out' prevents the DIV from being
+					// rendered.
+					// The CSS class will eventually be removed by the
+					// layout routine `view.album.content.justify` after all
+					// child nodes have been arranged.
+					// ---- Update 2022-10-20, temporary fix ----
+					// However, the reported width of hidden elements is zero.
+					// Hence, using the CSS class `laying-out` currently
+					// prevent `view.album.content.justify` from calculating
+					// the correct width of the container.
+					// TODO: Re-add the CSS class `laying-out` here after https://github.com/LycheeOrg/Lychee-front/pull/335 has been merged.
 					photosData = '<div class="justified-layout">' + photosData + "</div>";
 				} else if (lychee.layout === 2) {
 					photosData = '<div class="unjustified-layout">' + photosData + "</div>";
@@ -235,17 +287,17 @@ view.album = {
 			lychee.content.html(html);
 			album.apply_nsfw_filter();
 
-			view.album.content.justify(album.json ? album.json.photos : []);
-
-			view.album.content.restoreScroll();
+			setTimeout(function () {
+				view.album.content.justify();
+			}, 0);
 		},
 
 		/** @returns {void} */
 		restoreScroll: function () {
 			// Restore scroll position
-			const urls = JSON.parse(localStorage.getItem("scroll"));
+			const urls = JSON.parse(sessionStorage.getItem("scroll"));
 			const urlWindow = window.location.href;
-			$(window).scrollTop(urls != null && urls[urlWindow] ? urls[urlWindow] : 0);
+			$("#lychee_view_container").scrollTop(urls != null && urls[urlWindow] ? urls[urlWindow] : 0);
 		},
 
 		/**
@@ -359,7 +411,7 @@ view.album = {
 				.attr("data-srcset", srcset)
 				.addClass("lazyload");
 
-			view.album.content.justify(album.json ? album.json.photos : []);
+			setTimeout(() => view.album.content.justify(), 0);
 		},
 
 		/**
@@ -402,7 +454,7 @@ view.album = {
 								lychee.content.find(".divider").remove();
 							}
 							if (justify) {
-								view.album.content.justify(album.json ? album.json.photos : []);
+								setTimeout(() => view.album.content.justify(), 0);
 							}
 						}
 					}
@@ -451,21 +503,56 @@ view.album = {
 		 * Hence, this method would better not be part of `view.album.content`,
 		 * because it is not exclusively used for an album.
 		 *
-		 * @param {Photo[]} photos - the photos to be laid out
+		 * TODO: Livewire front-end will make this a pure CSS solution.
 		 *
 		 * @returns {void}
 		 */
-		justify: function (photos) {
-			if (photos.length === 0) return;
+		justify: function () {
+			// Note, this also works for search results as the search creates
+			// a virtual "search smart album" which fills `album.json`.
+			if (album.json === null || album.json.photos.length === 0) return;
+			/**
+			 * @type {Photo[]}
+			 */
+			const photos = album.json.photos;
+
 			if (lychee.layout === 1) {
-				let containerWidth = parseFloat($(".justified-layout").width());
+				/** @type {jQuery} */
+				const jqJustifiedLayout = $(".justified-layout");
+				let containerWidth = parseFloat(jqJustifiedLayout.width());
 				if (containerWidth === 0) {
-					// Triggered on Reload in photo view.
-					containerWidth =
-						$(window).width() -
-						parseFloat($(".justified-layout").css("margin-left")) -
-						parseFloat($(".justified-layout").css("margin-right")) -
-						parseFloat($(".content").css("padding-right"));
+					// The reported width is zero, if `.justified-layout`
+					// or any parent element is hidden via `display: none`.
+					// Currently, this happens when a page reload is triggered
+					// in photo view due to dorky timing constraints.
+					// (In short: `lychee.load` initially hides the parent
+					// container `.content`, and the parent container only
+					// becomes visible _after_ the photo has been loaded which
+					// is too late for this method.)
+					// Also note, that this container and the parent
+					// container are normally always visible, even if a photo
+					// is shown as the photo view is drawn in the foreground
+					// and covers this container.
+					// Hence, this edge case here is really only a problem
+					// during a full page reload in combination with
+					// `lychee.load`.
+					// Also note that the code below is wrong and outdated.
+					// The alternative way to calculate the container width
+					// depends on the window width and (falsely) assumes that
+					// neither the left menu nor the right sidebar are open,
+					// but that the `.content` box covers the whole viewport.
+					// That was a correct assumption in the past, as the
+					// sidebar was always closed after a full page reload, but
+					// this assumption isn't true anymore since Lychee
+					// remembers the state of the sidebar.
+					// Luckily, this whole problem vanishes with the new
+					// box model after
+					// https://github.com/LycheeOrg/Lychee-front/pull/335 has been merged.
+					// Then, we can use the view of the view container which
+					// is always visible and always has the correct width
+					// even for opened sidebars.
+					// TODO: Unconditionally use the width of the view container and remove this alternative width calculation after https://github.com/LycheeOrg/Lychee-front/pull/335 has been merged
+					containerWidth = $(window).width() - 2 * parseFloat(jqJustifiedLayout.css("margin"));
 				}
 				/** @type {number[]} */
 				const ratio = photos.map(function (_photo) {
@@ -482,16 +569,20 @@ view.album = {
 						: ratio;
 				});
 
+				/**
+				 * An album listing has potentially hundreds of photos, hence
+				 * only query for them once.
+				 * @type {jQuery}
+				 */
+				const jqPhotoElements = $(".justified-layout > div.photo");
+				const photoDefaultHeight = parseFloat(jqPhotoElements.css("--lychee-default-height"));
+
 				const layoutGeometry = require("justified-layout")(ratio, {
 					containerWidth: containerWidth,
 					containerPadding: 0,
-					// boxSpacing: {
-					//     horizontal: 42,
-					//     vertical: 150
-					// },
-					targetRowHeight: parseFloat($(".photo").css("--lychee-default-height")),
+					targetRowHeight: photoDefaultHeight,
 				});
-				// if (lychee.rights.is_admin) console.log(layoutGeometry);
+				// if (lychee.rights.settings.can_edit) console.log(layoutGeometry);
 				$(".justified-layout").css("height", layoutGeometry.containerHeight + "px");
 				$(".justified-layout > div").each(function (i) {
 					if (!layoutGeometry.boxes[i]) {
@@ -500,33 +591,41 @@ view.album = {
 						// query is being modified.
 						return false;
 					}
-					$(this).css("top", layoutGeometry.boxes[i].top);
-					$(this).css("width", layoutGeometry.boxes[i].width);
-					$(this).css("height", layoutGeometry.boxes[i].height);
-					$(this).css("left", layoutGeometry.boxes[i].left);
+					const imgs = $(this)
+						.css({
+							top: layoutGeometry.boxes[i].top + "px",
+							width: layoutGeometry.boxes[i].width + "px",
+							height: layoutGeometry.boxes[i].height + "px",
+							left: layoutGeometry.boxes[i].left + "px",
+						})
+						.find(".thumbimg > img");
 
-					let imgs = $(this).find(".thumbimg > img");
 					if (imgs.length > 0 && imgs[0].getAttribute("data-srcset")) {
 						imgs[0].setAttribute("sizes", layoutGeometry.boxes[i].width + "px");
 					}
 				});
+				// Show updated layout
+				jqJustifiedLayout.removeClass("laying-out");
 			} else if (lychee.layout === 2) {
-				let containerWidth = parseFloat($(".unjustified-layout").width());
+				/** @type {jQuery} */
+				const jqUnjustifiedLayout = $(".unjustified-layout");
+				let containerWidth = parseFloat(jqUnjustifiedLayout.width());
 				if (containerWidth === 0) {
 					// Triggered on Reload in photo view.
-					containerWidth =
-						$(window).width() -
-						parseFloat($(".unjustified-layout").css("margin-left")) -
-						parseFloat($(".unjustified-layout").css("margin-right")) -
-						parseFloat($(".content").css("padding-right"));
+					containerWidth = $(window).width() - 2 * parseFloat(jqUnjustifiedLayout.css("margin"));
 				}
-				// For whatever reason, the calculation of margin is
-				// super-slow in Firefox (tested with 68), so we make sure to
-				// do it just once, outside the loop.  Height doesn't seem to
-				// be affected, but we do it the same way for consistency.
-				let margin = parseFloat($(".photo").css("margin-right"));
-				let origHeight = parseFloat($(".photo").css("max-height"));
-				$(".unjustified-layout > div").each(function (i) {
+				/**
+				 * An album listing has potentially hundreds of photos, hence
+				 * only query for them once.
+				 * @type {jQuery}
+				 */
+				const jqPhotoElements = $(".unjustified-layout > div.photo");
+				const photoMaxHeight = parseFloat(jqPhotoElements.css("max-height"));
+				const photoMargin = parseFloat(jqPhotoElements.css("margin-right"));
+				// Temporarily hide the container such that not each
+				// modification of every photo triggers a UI update.
+				jqUnjustifiedLayout.addClass("laying-out");
+				jqPhotoElements.each(function (i) {
 					if (!photos[i]) {
 						// Race condition in search.find -- window content
 						// and `photos` can get out of sync as search
@@ -545,22 +644,28 @@ view.album = {
 						}
 					}
 
-					let height = origHeight;
+					let height = photoMaxHeight;
 					let width = height * ratio;
-					let imgs = $(this).find(".thumbimg > img");
 
-					if (width > containerWidth - margin) {
-						width = containerWidth - margin;
+					if (width > containerWidth - photoMargin) {
+						width = containerWidth - photoMargin;
 						height = width / ratio;
 					}
 
-					$(this).css("width", width + "px");
-					$(this).css("height", height + "px");
+					const imgs = $(this)
+						.css({
+							width: width + "px",
+							height: height + "px",
+						})
+						.find(".thumbimg > img");
 					if (imgs.length > 0 && imgs[0].getAttribute("data-srcset")) {
 						imgs[0].setAttribute("sizes", width + "px");
 					}
 				});
+				// Show updated layout
+				jqUnjustifiedLayout.removeClass("laying-out");
 			}
+			view.album.content.restoreScroll();
 		},
 	},
 
@@ -606,8 +711,8 @@ view.album = {
 	public: function () {
 		$("#button_visibility_album, #button_sharing_album_users").removeClass("active--not-hidden active--hidden");
 
-		if (album.json.is_public) {
-			if (album.json.requires_link) {
+		if (album.json.policy.is_public) {
+			if (album.json.policy.is_link_required) {
 				$("#button_visibility_album, #button_sharing_album_users").addClass("active--hidden");
 			} else {
 				$("#button_visibility_album, #button_sharing_album_users").addClass("active--not-hidden");
@@ -625,7 +730,7 @@ view.album = {
 	 * @returns {void}
 	 */
 	requiresLink: function () {
-		if (album.json.requires_link) sidebar.changeAttr("hidden", lychee.locale["ALBUM_SHR_YES"]);
+		if (album.json.policy.is_link_required) sidebar.changeAttr("hidden", lychee.locale["ALBUM_SHR_YES"]);
 		else sidebar.changeAttr("hidden", lychee.locale["ALBUM_SHR_NO"]);
 	},
 
@@ -633,7 +738,7 @@ view.album = {
 	 * @returns {void}
 	 */
 	nsfw: function () {
-		if (album.json.is_nsfw) {
+		if (album.json.policy.is_nsfw) {
 			// Sensitive
 			$("#button_nsfw_album").addClass("active").attr("title", lychee.locale["ALBUM_UNMARK_NSFW"]);
 		} else {
@@ -646,23 +751,15 @@ view.album = {
 	 * @returns {void}
 	 */
 	downloadable: function () {
-		if (album.json.is_downloadable) sidebar.changeAttr("downloadable", lychee.locale["ALBUM_SHR_YES"]);
+		if (album.json.policy.grants_download) sidebar.changeAttr("downloadable", lychee.locale["ALBUM_SHR_YES"]);
 		else sidebar.changeAttr("downloadable", lychee.locale["ALBUM_SHR_NO"]);
 	},
 
 	/**
 	 * @returns {void}
 	 */
-	shareButtonVisible: () => {
-		if (album.json.is_share_button_visible) sidebar.changeAttr("share_button_visible", lychee.locale["ALBUM_SHR_YES"]);
-		else sidebar.changeAttr("share_button_visible", lychee.locale["ALBUM_SHR_NO"]);
-	},
-
-	/**
-	 * @returns {void}
-	 */
 	password: function () {
-		if (album.json.has_password) sidebar.changeAttr("password", lychee.locale["ALBUM_SHR_YES"]);
+		if (album.json.policy.is_password_required) sidebar.changeAttr("password", lychee.locale["ALBUM_SHR_YES"]);
 		else sidebar.changeAttr("password", lychee.locale["ALBUM_SHR_NO"]);
 	},
 
@@ -674,7 +771,7 @@ view.album = {
 			const structure = sidebar.createStructure.album(album.json);
 			const html = sidebar.render(structure);
 
-			sidebar.dom(".sidebar__wrapper").html(html);
+			sidebar.dom("#lychee_sidebar_content").html(html);
 			sidebar.bind();
 		}
 	},
@@ -708,14 +805,6 @@ view.photo = {
 		header.setMode("photo");
 
 		if (!visible.photo()) {
-			// Make body not scrollable
-			// use bodyScrollLock package to enable locking on iOS
-			// Simple overflow: hidden not working on iOS Safari
-			// Only the info pane needs scrolling
-			// Touch event for swiping of photo still work
-
-			scrollLock.disablePageScroll($(".sidebar__wrapper").get());
-
 			// Fullscreen
 			let timeout = null;
 			$(document).bind("mousemove", function () {
@@ -733,6 +822,7 @@ view.photo = {
 			}
 
 			lychee.animate(lychee.imageview, "fadeIn");
+			lychee.imageview.addClass("active");
 		}
 	},
 
@@ -745,9 +835,6 @@ view.photo = {
 		lychee.content.removeClass("view");
 		header.setMode("album");
 
-		// Make body scrollable
-		scrollLock.enablePageScroll($(".sidebar__wrapper").get());
-
 		// Disable Fullscreen
 		$(document).unbind("mousemove");
 		if ($("video").length) {
@@ -756,8 +843,13 @@ view.photo = {
 
 		// Hide Photo
 		lychee.animate(lychee.imageview, "fadeOut");
+		// TODO: Reconsider the lines below
+		// The lines below are inconsistent to the corresponding code for
+		// the mapview (cp. `mapview.close()`).
+		// Here, we remove the `active` class after the animation has ended,
+		// in `mapview.close()` we remove that class immediately.
 		setTimeout(() => {
-			lychee.imageview.hide();
+			lychee.imageview.removeClass("active");
 			view.album.sidebar();
 		}, 300);
 	},
@@ -767,7 +859,8 @@ view.photo = {
 	 */
 	title: function () {
 		if (photo.json.init) sidebar.changeAttr("title", photo.json.title ? photo.json.title : "");
-		lychee.setTitle(photo.json.title ? photo.json.title : lychee.locale["UNTITLED"], true);
+		const photoUrl = photo.json.size_variants.medium ? photo.json.size_variants.medium.url : photo.json.size_variants.original.url;
+		lychee.setMetaData(photo.json.title ? photo.json.title : lychee.locale["UNTITLED"], true, photo.json.description, photoUrl);
 	},
 
 	/**
@@ -775,6 +868,13 @@ view.photo = {
 	 */
 	description: function () {
 		if (photo.json.init) sidebar.changeAttr("description", photo.json.description ? photo.json.description : "");
+	},
+
+	/**
+	 * @returns {void}
+	 */
+	uploaded: function () {
+		if (photo.json.init) sidebar.changeAttr("uploaded", photo.json.created_at ? lychee.locale.printDateTime(photo.json.created_at) : "");
 	},
 
 	/**
@@ -820,14 +920,12 @@ view.photo = {
 	public: function () {
 		$("#button_visibility").removeClass("active--hidden active--not-hidden");
 
-		if (photo.json.is_public === 1 || photo.json.is_public === 2) {
-			// Photo public
-			if (photo.json.is_public === 1) {
-				$("#button_visibility").addClass("active--hidden");
-			} else {
-				$("#button_visibility").addClass("active--not-hidden");
-			}
-
+		if (photo.json.is_public === true) {
+			$("#button_visibility").addClass("active--hidden");
+			if (photo.json.init) sidebar.changeAttr("public", lychee.locale["PHOTO_SHR_YES"]);
+		} else if (photo.json.album_id !== null && album.json.policy.is_public === true) {
+			// part of a visible album
+			$("#button_visibility").addClass("active--not-hidden");
 			if (photo.json.init) sidebar.changeAttr("public", lychee.locale["PHOTO_SHR_YES"]);
 		} else {
 			// Photo private
@@ -926,7 +1024,7 @@ view.photo = {
 		const html = sidebar.render(structure);
 		const has_location = !!(photo.json.latitude && photo.json.longitude);
 
-		sidebar.dom(".sidebar__wrapper").html(html);
+		sidebar.dom("#lychee_sidebar_content").html(html);
 		sidebar.bind();
 
 		if (has_location && lychee.map_display) {
@@ -1017,7 +1115,7 @@ view.settings = {
 	 * @returns {void}
 	 */
 	title: function () {
-		lychee.setTitle(lychee.locale["SETTINGS"], false);
+		lychee.setMetaData(lychee.locale["SETTINGS"]);
 	},
 
 	/**
@@ -1033,19 +1131,23 @@ view.settings = {
 		 */
 		init: function () {
 			view.settings.clearContent();
-			view.settings.content.setLogin();
-			if (lychee.rights.is_admin) {
+			if (lychee.rights.user.can_edit) {
+				view.settings.content.setLogin();
+			}
+			if (lychee.rights.settings.can_edit) {
 				view.settings.content.setSorting();
 				view.settings.content.setDropboxKey();
 				view.settings.content.setLang();
 				view.settings.content.setDefaultLicense();
 				view.settings.content.setLayout();
 				view.settings.content.setPublicSearch();
+				view.settings.content.setAlbumDecoration();
 				view.settings.content.setOverlayType();
 				view.settings.content.setMapDisplay();
 				view.settings.content.setNSFWVisible();
 				view.settings.content.setNotification();
 				view.settings.content.setCSS();
+				view.settings.content.setJS();
 				view.settings.content.moreButton();
 			}
 		},
@@ -1054,6 +1156,11 @@ view.settings = {
 		 * @returns {void}
 		 */
 		setLogin: function () {
+			let username_type = "hidden";
+			if (lychee.allow_username_change) {
+				username_type = "text";
+			}
+
 			const msg = lychee.html`
 			<div class="setLogin">
 			<form>
@@ -1061,7 +1168,7 @@ view.settings = {
 				  <input name='oldPassword' class='text' type='password' placeholder='$${lychee.locale["PASSWORD_CURRENT"]}' value=''>
 			  </p>
 			  <p>$${lychee.locale["PASSWORD_TEXT"]}
-				  <input name='username' class='text' type='text' placeholder='$${lychee.locale["LOGIN_USERNAME"]}' value=''>
+				  <input name='username' class='text' type='$${username_type}' placeholder='$${lychee.locale["LOGIN_USERNAME"]}' value=''>
 				  <input name='password' class='text' type='password' placeholder='$${lychee.locale["LOGIN_PASSWORD"]}' value=''>
 				  <input name='confirm' class='text' type='password' placeholder='$${lychee.locale["LOGIN_PASSWORD_CONFIRM"]}' value=''>
 			  </p>
@@ -1339,6 +1446,44 @@ view.settings = {
 		/**
 		 * @returns {void}
 		 */
+		setAlbumDecoration: function () {
+			let msg = `
+			<div class="setAlbumDecoration">
+			<p>${lychee.locale["ALBUM_DECORATION"]}
+			<span class="select" style="width:270px">
+				<select name="album_decoration" id="AlbumDecorationType">
+					<option value="none">${lychee.locale["ALBUM_DECORATION_NONE"]}</option>
+					<option value="layers">${lychee.locale["ALBUM_DECORATION_ORIGINAL"]}</option>
+					<option value="album">${lychee.locale["ALBUM_DECORATION_ALBUM"]}</option>
+					<option value="photo">${lychee.locale["ALBUM_DECORATION_PHOTO"]}</option>
+					<option value="all">${lychee.locale["ALBUM_DECORATION_ALL"]}</option>
+				</select>
+			</span>
+			<p>${lychee.locale["ALBUM_DECORATION_ORIENTATION"]}
+			<span class="select" style="width:270px">
+				<select name="album_decoration_orientation" id="AlbumDecorationOrientation">
+					<option value="row">${lychee.locale["ALBUM_DECORATION_ORIENTATION_ROW"]}</option>
+					<option value="row-reverse">${lychee.locale["ALBUM_DECORATION_ORIENTATION_ROW_REVERSE"]}</option>
+					<option value="column">${lychee.locale["ALBUM_DECORATION_ORIENTATION_COLUMN"]}</option>
+					<option value="column-reverse">${lychee.locale["ALBUM_DECORATION_ORIENTATION_COLUMN_REVERSE"]}</option>
+				</select>
+			</span>
+			<div class="basicModal__buttons">
+				<a id="basicModal__action_set_album_decoration" class="basicModal__button">${lychee.locale["SET_ALBUM_DECORATION"]}</a>
+			</div>
+			</div>
+			`;
+
+			$(".settings_view").append(msg);
+
+			$("select#AlbumDecorationType").val(!lychee.album_decoration ? "layers" : lychee.album_decoration);
+			$("select#AlbumDecorationOrientation").val(!lychee.album_decoration_orientation ? "row" : lychee.album_decoration_orientation);
+			settings.bind("#basicModal__action_set_album_decoration", ".setAlbumDecoration", settings.setAlbumDecoration);
+		},
+
+		/**
+		 * @returns {void}
+		 */
 		setOverlayType: function () {
 			let msg = `
 			<div class="setOverlayType">
@@ -1525,7 +1670,7 @@ view.settings = {
 
 			let css_addr = $($("link")[1]).attr("href");
 
-			api.getCSS(css_addr, function (data) {
+			api.getRawContent(css_addr, function (data) {
 				$("#css").html(data);
 			});
 
@@ -1535,9 +1680,33 @@ view.settings = {
 		/**
 		 * @returns {void}
 		 */
+		setJS: function () {
+			const msg = `
+			<div class="setJS">
+			<p>${lychee.locale["JS_TEXT"]}</p>
+			<textarea id="js"></textarea>
+			<div class="basicModal__buttons">
+				<a id="basicModal__action_set_js" class="basicModal__button">${lychee.locale["JS_TITLE"]}</a>
+			</div>
+			</div>`;
+
+			$(".settings_view").append(msg);
+
+			let js_addr = $("script[src]:last").attr("src");
+
+			api.getRawContent(js_addr, function (data) {
+				$("#js").html(data);
+			});
+
+			settings.bind("#basicModal__action_set_js", ".setJS", settings.changeJS);
+		},
+
+		/**
+		 * @returns {void}
+		 */
 		moreButton: function () {
 			const msg = lychee.html`
-			<div class="setCSS">
+			<div class="setJS">
 				<a id="basicModal__action_more" class="basicModal__button basicModal__button_MORE">${lychee.locale["MORE"]}</a>
 			</div>
 			`;
@@ -1564,7 +1733,7 @@ view.full_settings = {
 	 * @returns {void}
 	 */
 	title: function () {
-		lychee.setTitle(lychee.locale["FULL_SETTINGS"], false);
+		lychee.setMetaData(lychee.locale["FULL_SETTINGS"]);
 	},
 
 	/**
@@ -1642,7 +1811,7 @@ view.notifications = {
 
 	/** @returns {void} */
 	title: function () {
-		lychee.setTitle(lychee.locale["NOTIFICATIONS"], false);
+		lychee.setMetaData(lychee.locale["NOTIFICATIONS"]);
 	},
 
 	/** @returns {void} */
@@ -1691,7 +1860,7 @@ view.users = {
 
 	/** @returns {void} */
 	title: function () {
-		lychee.setTitle(lychee.locale["USERS"], false);
+		lychee.setMetaData(lychee.locale["USERS"]);
 	},
 
 	/** @returns {void} */
@@ -1712,13 +1881,13 @@ view.users = {
 
 			let html = `
 				<div class="users_view_line"><p>
-					<span class="text">username</span>
-					<span class="text">new password</span>
+					<span class="text">${lychee.locale["USERNAME"]}</span>
+					<span class="text">${lychee.locale["NEW_PASSWORD"]}</span>
 					<span class="text_icon" title="${lychee.locale["ALLOW_UPLOADS"]}">
 						${build.iconic("data-transfer-upload")}
 					</span>
-					<span class="text_icon" title="${lychee.locale["RESTRICTED_ACCOUNT"]}">
-						${build.iconic("lock-locked")}
+					<span class="text_icon" title="${lychee.locale["ALLOW_USER_SELF_EDIT"]}">
+						${build.iconic("lock-unlocked")}
 					</span>
 				</p></div>`;
 
@@ -1732,8 +1901,8 @@ view.users = {
 				if (_user.may_upload) {
 					$("#UserData" + _user.id + ' .choice input[name="may_upload"]').click();
 				}
-				if (_user.is_locked) {
-					$("#UserData" + _user.id + ' .choice input[name="is_locked"]').click();
+				if (_user.may_edit_own_settings) {
+					$("#UserData" + _user.id + ' .choice input[name="may_edit_own_settings"]').click();
 				}
 			});
 
@@ -1748,9 +1917,9 @@ view.users = {
 								<span class="checkbox"><svg class="iconic "><use xlink:href="#check"></use></svg></span>
 							</label>
 						</span>
-						<span class="choice" title="${lychee.locale["RESTRICTED_ACCOUNT"]}">
+						<span class="choice" title="${lychee.locale["ALLOW_USER_SELF_EDIT"]}">
 							<label>
-								<input type="checkbox" name="is_locked" />
+								<input type="checkbox" name="may_edit_own_settings" />
 								<span class="checkbox"><svg class="iconic "><use xlink:href="#check"></use></svg></span>
 							</label>
 						</span>
@@ -1776,7 +1945,7 @@ view.sharing = {
 
 	/** @returns {void} */
 	title: function () {
-		lychee.setTitle(lychee.locale["SHARING"], false);
+		lychee.setMetaData(lychee.locale["SHARING"]);
 	},
 
 	/** @returns {void} */
@@ -1917,12 +2086,14 @@ view.logs = {
 
 	/** @returns {void} */
 	title: function () {
-		lychee.setTitle(lychee.locale["LOGS"], false);
+		lychee.setMetaData(lychee.locale["LOGS"]);
 	},
 
 	/** @returns {void} */
 	clearContent: function () {
-		const html = lychee.html`
+		let html = "";
+		if (lychee.rights.settings.can_clear_logs) {
+			html += lychee.html`
 			<div class="clear_logs_update">
 				<a id="Clean_Noise" class="basicModal__button">
 					${lychee.locale["CLEAN_LOGS"]}
@@ -1930,7 +2101,9 @@ view.logs = {
 				<a id="Clear" class="basicModal__button">
 					${lychee.locale["CLEAR"]}
 				</a>
-			</div>
+			</div>`;
+		}
+		html += lychee.html`
 			<pre class="logs_diagnostics_view"></pre>`;
 		lychee.content.html(html);
 
@@ -2012,7 +2185,7 @@ view.diagnostics = {
 
 	/** @returns {void} */
 	title: function () {
-		lychee.setTitle(lychee.locale["DIAGNOSTICS"], false);
+		lychee.setMetaData(lychee.locale["DIAGNOSTICS"]);
 	},
 
 	/**
@@ -2156,7 +2329,7 @@ view.update = {
 
 	/** @returns {void} */
 	title: function () {
-		lychee.setTitle(lychee.locale["UPDATE"], false);
+		lychee.setMetaData(lychee.locale["UPDATE"]);
 	},
 
 	/** @returns {void} */
@@ -2205,7 +2378,7 @@ view.u2f = {
 
 	/** @returns {void} */
 	title: function () {
-		lychee.setTitle(lychee.locale["U2F"], false);
+		lychee.setMetaData(lychee.locale["U2F"]);
 	},
 
 	/** @returns {void} */

@@ -15,8 +15,8 @@
 	"scripts": {
 		"start": "gulp watch",
 		"compile": "gulp",
-		"check-formatting": "prettier --check .",
-		"format": "prettier --write ."
+		"check-formatting": "prettier --check scripts/ styles/",
+		"format": "prettier --write scripts/ styles/"
 	},
 	"engines": {
 		"node": ">= 10"
@@ -36,24 +36,25 @@
 		"mousetrap": "^1.6.0",
 		"multiselect-two-sides": "^2.5.5",
 		"qr-creator": "^1.0.0",
-		"scroll-lock": "^2.1.2",
+		"resize-observer-polyfill": "^1.5.1",
 		"sprintf-js": "^1.1.2",
 		"stackblur-canvas": "^2.5.0"
 	},
 	"devDependencies": {
-		"babel-preset-env": "^1.7.0",
+		"@babel/core": "^7.20.7",
+		"@babel/preset-env": "^7.20.2",
 		"del": "^5.1.0",
 		"gulp": "^4.0.0",
 		"gulp-autoprefixer": "^6.0.0",
-		"gulp-babel": "^6.1.2",
+		"gulp-babel": "^8.0.0",
+		"gulp-chmod": "^3.0.0",
 		"gulp-clean-css": "^3.10.0",
 		"gulp-concat": "^2.6.1",
 		"gulp-inject": "^4.2.0",
 		"gulp-load-plugins": "^1.5.0",
 		"gulp-sass": "^5.1.0",
 		"gulp-uglify": "^3.0.2",
-		"npm": "^8.19.2",
-		"prettier": "2.2.1",
+		"prettier": "^2.8.3",
 		"sass": "^1.51.0",
 		"uglify-js": "^3.12.4"
 	}

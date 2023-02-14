@@ -9,7 +9,8 @@ const notifications = {
  */
 notifications.update = function (params) {
 	if (params.email && params.email.length > 1) {
-		const regexp = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+		const regexp =
+			/^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
 
 		if (!regexp.test(String(params.email).toLowerCase())) {
 			loadingBar.show("error", lychee.locale["ERROR_INVALID_EMAIL"]);
@@ -24,10 +25,10 @@ notifications.update = function (params) {
 
 notifications.load = function () {
 	api.post(
-		"User::getEmail",
+		"User::getAuthenticatedUser",
 		{},
 		/** @param {EMailData} data */ function (data) {
-			notifications.json = data;
+			notifications.json = data.email;
 			view.notifications.init();
 		}
 	);

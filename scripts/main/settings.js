@@ -11,108 +11,6 @@ settings.open = function () {
 	view.settings.init();
 };
 
-settings.createLogin = function () {
-	/**
-	 * @param {XMLHttpRequest} jqXHR the jQuery XMLHttpRequest object, see {@link https://api.jquery.com/jQuery.ajax/#jqXHR}.
-	 * @param {Object} params the original JSON parameters of the request
-	 * @param {?LycheeException} lycheeException the Lychee exception
-	 * @returns {boolean}
-	 */
-	const errorHandler = function (jqXHR, params, lycheeException) {
-		basicModal.show({
-			body: "<p></p><p></p>",
-			readyCB: (formElement, dialog) => {
-				/** @type {NodeList<HTMLParagraphElement>} */
-				const paragraphs = dialog.querySelectorAll("p");
-				paragraphs.item(0).textContent = lychee.locale["ERROR_LOGIN"];
-				paragraphs.item(1).textContent = lycheeException ? lycheeException.message : "";
-			},
-			buttons: {
-				action: {
-					title: lychee.locale["RETRY"],
-					fn: () => settings.createLogin(),
-				},
-			},
-		});
-		return true;
-	};
-
-	/**
-	 * @param {User} updatedAdminUser
-	 * @returns {void}
-	 */
-	const successHandler = function (updatedAdminUser) {
-		lychee.user = updatedAdminUser;
-	};
-
-	/**
-	 * @param {ModalDialogResult} data
-	 * @returns {void}
-	 */
-	const action = function (data) {
-		if (!data.username.trim()) {
-			basicModal.focusError("username");
-			return;
-		}
-
-		if (!data.password.trim()) {
-			basicModal.focusError("password");
-			return;
-		}
-
-		if (data.password !== data.confirm) {
-			basicModal.focusError("confirm");
-			return;
-		}
-
-		basicModal.close();
-
-		const params = {
-			username: data.username,
-			password: data.password,
-		};
-
-		api.post("Settings::setLogin", params, successHandler, null, errorHandler);
-	};
-
-	const createLoginDialogBody = `
-		<p></p>
-		<form>
-			<div class="input-group stacked">
-				<input name='username' class='text' type='text' autocapitalize='off'>
-			</div>
-			<div class="input-group stacked">
-				<input name='password' class='text' type='password'>
-			</div>
-			<div class="input-group stacked">
-				<input name='confirm' class='text' type='password'>
-			</div>
-		</form>`;
-
-	/**
-	 * @param {ModalDialogFormElements} formElements
-	 * @param {HTMLDivElement} dialog
-	 * @returns {void}
-	 */
-	const initDialog = function (formElements, dialog) {
-		dialog.querySelector("p").textContent = lychee.locale["LOGIN_TITLE"];
-		formElements.username.placeholder = lychee.locale["LOGIN_USERNAME"];
-		formElements.password.placeholder = lychee.locale["LOGIN_PASSWORD"];
-		formElements.confirm.placeholder = lychee.locale["LOGIN_PASSWORD_CONFIRM"];
-	};
-
-	basicModal.show({
-		body: createLoginDialogBody,
-		readyCB: initDialog,
-		buttons: {
-			action: {
-				title: lychee.locale["LOGIN_CREATE"],
-				fn: action,
-			},
-		},
-	});
-};
-
 /**
  * A dictionary of (name,value)-pairs of the form.
  *
@@ -197,6 +95,10 @@ settings.bind = function (inputSelector, formSelector, settingClickCB) {
  * @returns {void}
  */
 settings.changeLogin = function (params) {
+	if (params.username === "") {
+		params.username = null;
+	}
+
 	if (params.password.length < 1) {
 		loadingBar.show("error", lychee.locale["ERROR_EMPTY_PASSWORD"]);
 		$("input[name=password]").addClass("error");
@@ -214,7 +116,7 @@ settings.changeLogin = function (params) {
 	}
 
 	api.post(
-		"Settings::updateLogin",
+		"User::updateLogin",
 		params,
 		/** @param {User} updatedUser */ function (updatedUser) {
 			$("input[name]").removeClass("error");
@@ -294,6 +196,19 @@ settings.changePublicSearch = function (params) {
 	api.post("Settings::setPublicSearch", params, function () {
 		loadingBar.show("success", lychee.locale["SETTINGS_SUCCESS_PUBLIC_SEARCH"]);
 		lychee.public_search = params.public_search;
+	});
+};
+
+/**
+ * @param {SettingsFormData} params
+ * @returns {void}
+ */
+settings.setAlbumDecoration = function (params) {
+	api.post("Settings::setAlbumDecoration", params, function () {
+		loadingBar.show("success", lychee.locale["SETTINGS_SUCCESS_ALBUM_DECORATION"]);
+		albums.refresh();
+		lychee.album_decoration = params.album_decoration;
+		lychee.album_decoration_orientation = params.album_decoration_orientation;
 	});
 };
 
@@ -444,6 +359,19 @@ settings.changeCSS = function () {
 	api.post("Settings::setCSS", params, function () {
 		lychee.css = params.css;
 		loadingBar.show("success", lychee.locale["SETTINGS_SUCCESS_CSS"]);
+	});
+};
+
+/**
+ * @returns {void}
+ */
+settings.changeJS = function () {
+	const params = {
+		js: $("#js").val(),
+	};
+	api.post("Settings::setJS", params, function () {
+		lychee.js = params.js;
+		loadingBar.show("success", lychee.locale["SETTINGS_SUCCESS_JS"]);
 	});
 };
 
@@ -606,9 +534,9 @@ settings.openTokenDialog = function () {
 
 		updateTokenDialog();
 
-		copyTokenButton.addEventListener(lychee.getEventName(), onCopyToken);
-		resetTokenButton.addEventListener(lychee.getEventName(), onResetToken);
-		disableTokenButton.addEventListener(lychee.getEventName(), onDisableToken);
+		lychee.addClickOrTouchListener(copyTokenButton, onCopyToken);
+		lychee.addClickOrTouchListener(resetTokenButton, onResetToken);
+		lychee.addClickOrTouchListener(disableTokenButton, onDisableToken);
 	};
 
 	basicModal.show({

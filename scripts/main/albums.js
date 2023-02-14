@@ -12,6 +12,26 @@ const albums = {
  */
 albums.load = function () {
 	const showRootAlbum = function () {
+		// DO NOT change the order of `header.setMode` and `view.albums.init`.
+		// The latter relies on the header being set correctly.
+		//
+		// `view.albums.init` builds the HTML of the albums view (note the
+		// plural-s).
+		// Internally, this exploits code for regular albums which in
+		// turn calls `album.isUploadabe` (note the missing plural-s) to
+		// check whether the current album supports drag-&-drop.
+		// In order to return the correct value `album.isUploadabe` resorts
+		// to a hack: if no (regular) album is loaded `album.isUploadabe`
+		// normally returns `false` except the root album is visible.
+		// In that case `album.isUploadabe` returns a "fake" `true`.
+		// However, in order to do so `album.isUploadabe` needs to check
+		// whether the root album is visible which is determined by the
+		// visibility of the corresponding header.
+		// That is why the header needs to be set first.
+		//
+		// However, the actual bug is to call `album.isUploadable` for the
+		// root view.
+		// TODO: Fix the bug described above.
 		header.setMode("albums");
 		view.albums.init();
 		lychee.animate(lychee.content, "contentZoomIn");
@@ -50,9 +70,6 @@ albums.load = function () {
 	 * @param {Albums} data
 	 */
 	const successCallback = function (data) {
-		// Smart Albums
-		if (data.smart_albums) albums.localizeSmartAlbums(data.smart_albums);
-
 		albums.json = data;
 
 		// Skip delay when opening a blank Lychee
@@ -83,37 +100,10 @@ albums.parse = function (album) {
 	if (!album.thumb) {
 		album.thumb = {
 			id: "",
-			thumb: album.has_password ? "img/password.svg" : "img/no_images.svg",
+			thumb: album.policy.is_password_required ? "img/password.svg" : "img/no_images.svg",
 			type: "image/svg+xml",
 			thumb2x: null,
 		};
-	}
-};
-
-/**
- * Normalizes the built-in smart albums.
- *
- * @param {SmartAlbums} data
- * @returns {void}
- */
-albums.localizeSmartAlbums = function (data) {
-	if (data.unsorted) {
-		data.unsorted.title = lychee.locale["UNSORTED"];
-	}
-
-	if (data.starred) {
-		data.starred.title = lychee.locale["STARRED"];
-	}
-
-	if (data.public) {
-		data.public.title = lychee.locale["PUBLIC"];
-		// TODO: Why do we need to set these two attributes? What component relies upon them, what happens if we don't set them? Is it legacy?
-		data.public.is_public = true;
-		data.public.requires_link = true;
-	}
-
-	if (data.recent) {
-		data.recent.title = lychee.locale["RECENT"];
 	}
 };
 
@@ -234,6 +224,7 @@ albums.isEmpty = function () {
 			albums.isSmartAlbumEmpty(albums.json.smart_albums.recent) &&
 			albums.isSmartAlbumEmpty(albums.json.smart_albums.starred) &&
 			albums.isSmartAlbumEmpty(albums.json.smart_albums.unsorted) &&
+			albums.isSmartAlbumEmpty(albums.json.smart_albums.on_this_day) &&
 			albums.json.albums.length === 0 &&
 			albums.json.shared_albums.length === 0 &&
 			albums.json.tag_albums.length === 0)
@@ -245,5 +236,5 @@ albums.isEmpty = function () {
  * @returns {boolean}
  */
 albums.isSmartAlbumEmpty = function (smartAlbum) {
-	return smartAlbum === null || !smartAlbum.photos || smartAlbum.photos.length === 0;
+	return !smartAlbum || !smartAlbum.photos || smartAlbum.photos.length === 0;
 };

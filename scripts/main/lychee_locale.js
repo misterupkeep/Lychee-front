@@ -41,6 +41,7 @@ lychee.locale = {
 	DEFAULT_LICENSE: "Default license for new uploads:",
 	SET_LICENSE: "Set License",
 	SET_OVERLAY_TYPE: "Set Overlay",
+	SET_ALBUM_DECORATION: "Set album decorations",
 	SET_MAP_PROVIDER: "Set OpenStreetMap tiles provider",
 	FULL_SETTINGS: "Full Settings",
 	UPDATE: "Update",
@@ -130,6 +131,7 @@ lychee.locale = {
 	STARRED: "Starred",
 	RECENT: "Recent",
 	PUBLIC: "Public",
+	ON_THIS_DAY: "On This Day",
 	NUM_PHOTOS: "Photos",
 
 	CREATE_ALBUM: "Create Album",
@@ -284,13 +286,14 @@ lychee.locale = {
 		"Because this photo is located in a public album, it inherits that album’s visibility settings.  Its current visibility is shown below for informational purposes only.",
 	PHOTO_EDIT_GLOBAL_SHARING_TEXT:
 		"The visibility of this photo can be fine-tuned using global Lychee settings. Its current visibility is shown below for informational purposes only.",
+	PHOTO_NEW_CREATED_AT: "Enter the upload date for this photo. mm/dd/yyyy, hh:mm [am/pm]",
+	PHOTO_SET_CREATED_AT: "Set upload date",
 
 	LOADING: "Loading",
 	ERROR: "Error",
 	ERROR_TEXT: "Whoops, it looks like something went wrong. Please reload the site and try again!",
 	ERROR_UNKNOWN:
 		"Something unexpected happened. Please try again and check your installation and server. Take a look at the readme for more information.",
-	ERROR_LOGIN: "Unable to save login. Please try again with another username and password!",
 	ERROR_MAP_DEACTIVATED: "Map functionality has been deactivated under settings.",
 	ERROR_SEARCH_DEACTIVATED: "Search functionality has been deactivated under settings.",
 	SUCCESS: "OK",
@@ -302,13 +305,15 @@ lychee.locale = {
 	SETTINGS_SUCCESS_DROPBOX: "Dropbox Key updated.",
 	SETTINGS_SUCCESS_LANG: "Language updated",
 	SETTINGS_SUCCESS_LAYOUT: "Layout updated",
-	SETTINGS_SUCCESS_IMAGE_OVERLAY: "EXIF Overlay setting updated",
+	SETTINGS_SUCCESS_IMAGE_OVERLAY: "Image overlay setting updated",
+	SETTINGS_SUCCESS_ALBUM_DECORATION: "Album decorations updated",
 	SETTINGS_SUCCESS_PUBLIC_SEARCH: "Public search updated",
 	SETTINGS_SUCCESS_LICENSE: "Default license updated",
 	SETTINGS_SUCCESS_MAP_DISPLAY: "Map display settings updated",
 	SETTINGS_SUCCESS_MAP_DISPLAY_PUBLIC: "Map display settings for public albums updated",
 	SETTINGS_SUCCESS_MAP_PROVIDER: "Map provider settings updated",
 	SETTINGS_SUCCESS_CSS: "CSS updated",
+	SETTINGS_SUCCESS_JS: "JS updated",
 	SETTINGS_SUCCESS_UPDATE: "Settings updated successfully",
 	SETTINGS_DROPBOX_KEY: "Dropbox API Key",
 	SETTINGS_ADVANCED_WARNING_EXPL:
@@ -327,15 +332,12 @@ lychee.locale = {
 	SETTINGS_SUCCESS_NEW_PHOTOS_NOTIFICATION: "New photos notification updated",
 	USER_EMAIL_INSTRUCTION: "Add your email below to enable receiving email notifications. To stop receiving emails, simply remove your email below.",
 
-	LOGIN_TITLE: "Enter a username and password for your installation:",
 	LOGIN_USERNAME: "New Username",
 	LOGIN_PASSWORD: "New Password",
 	LOGIN_PASSWORD_CONFIRM: "Confirm Password",
-	LOGIN_CREATE: "Create Login",
-
 	PASSWORD_TITLE: "Enter your current password:",
 	PASSWORD_CURRENT: "Current Password",
-	PASSWORD_TEXT: "Your username and password will be changed to the following:",
+	PASSWORD_TEXT: "Your credentials will be changed to the following:",
 	PASSWORD_CHANGE: "Change Login",
 
 	EDIT_SHARING_TITLE: "Edit Sharing",
@@ -377,12 +379,25 @@ lychee.locale = {
 
 	CSS_TEXT: "Personalize CSS:",
 	CSS_TITLE: "Change CSS",
+	JS_TEXT: "Custom JS:",
+	JS_TITLE: "Change JS",
 	PUBLIC_SEARCH_TEXT: "Public search allowed:",
 	OVERLAY_TYPE: "Photo overlay:",
 	OVERLAY_NONE: "None",
 	OVERLAY_EXIF: "EXIF data",
 	OVERLAY_DESCRIPTION: "Description",
 	OVERLAY_DATE: "Date taken",
+	ALBUM_DECORATION: "Album decorations:",
+	ALBUM_DECORATION_NONE: "No badges",
+	ALBUM_DECORATION_ORIGINAL: "Sub-album badge, no count",
+	ALBUM_DECORATION_ALBUM: "Sub-album badge with count",
+	ALBUM_DECORATION_PHOTO: "Photo badge with count",
+	ALBUM_DECORATION_ALL: "Sub-album and photo badges with counts",
+	ALBUM_DECORATION_ORIENTATION: "Orientation of album decorations:",
+	ALBUM_DECORATION_ORIENTATION_ROW: "Horizontal decorations (photos, albums)",
+	ALBUM_DECORATION_ORIENTATION_ROW_REVERSE: "Horizontal decorations (albums, photos)",
+	ALBUM_DECORATION_ORIENTATION_COLUMN: "Vertical decorations (top photos, albums)",
+	ALBUM_DECORATION_ORIENTATION_COLUMN_REVERSE: "Vertical decorations (top albums, photos)",
 	MAP_DISPLAY_TEXT: "Enable maps (provided by OpenStreetMap):",
 	MAP_DISPLAY_PUBLIC_TEXT: "Enable maps for public albums (provided by OpenStreetMap):",
 	MAP_PROVIDER: "Provider of OpenStreetMap tiles:",
@@ -406,6 +421,9 @@ lychee.locale = {
 	NSFW_VISIBLE_TEXT_2:
 		"If the album is public, it is still accessible, just hidden from the view and <b>can be revealed by pressing <kbd>H</kbd></b>.",
 	SETTINGS_SUCCESS_NSFW_VISIBLE: "Default sensitive album visibility updated with success.",
+
+	NSFW_BANNER:
+		"<h1>Sensitive content</h1><p>This album contains sensitive content which some people may find offensive or disturbing.</p><p>Tap to consent.</p>",
 
 	VIEW_NO_RESULT: "No results",
 	VIEW_NO_PUBLIC_ALBUMS: "No public albums",
@@ -468,12 +486,13 @@ lychee.locale = {
 	ABOUT_SUBTITLE: "Self-hosted photo-management done right",
 	ABOUT_DESCRIPTION:
 		"<a target='_blank' href='%s'>Lychee</a> is a free photo-management tool, which runs on your server or web-space. Installing is a matter of seconds. Upload, manage and share photos like from a native application. Lychee comes with everything you need and all your photos are stored securely.",
-	FOOTER_COPYRIGHT: "All images on this website are subject to copyright by %1$s &copy; %2$s",
+	FOOTER_COPYRIGHT: "All images on this website are subject to copyright by %1$s © %2$s",
 	HOSTED_WITH_LYCHEE: "Hosted with Lychee",
 
 	URL_COPY_TO_CLIPBOARD: "Copy to clipboard",
 	URL_COPIED_TO_CLIPBOARD: "Copied URL to clipboard!",
 	PHOTO_DIRECT_LINKS_TO_IMAGES: "Direct links to image files:",
+	PHOTO_ORIGINAL: "Original",
 	PHOTO_MEDIUM: "Medium",
 	PHOTO_MEDIUM_HIDPI: "Medium HiDPI",
 	PHOTO_SMALL: "Thumb",
@@ -512,7 +531,7 @@ lychee.locale = {
 	CAMERA_DATE: "Camera date",
 	NEW_PASSWORD: "new password",
 	ALLOW_UPLOADS: "Allow uploads",
-	RESTRICTED_ACCOUNT: "Restricted account",
+	ALLOW_USER_SELF_EDIT: "Allow self-management of user account",
 	OSM_CONTRIBUTORS: "OpenStreetMap contributors",
 
 	dateTimeFormatter: new Intl.DateTimeFormat("default", { dateStyle: "medium", timeStyle: "medium" }),

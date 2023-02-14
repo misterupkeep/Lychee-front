@@ -76,7 +76,38 @@ build.album = function (data, disabled = false) {
 	const formattedCreationTs = lychee.locale.printMonthYear(data.created_at);
 	const formattedMinTs = lychee.locale.printMonthYear(data.min_taken_at);
 	const formattedMaxTs = lychee.locale.printMonthYear(data.max_taken_at);
-	const disableDragDrop = !album.isUploadable() || disabled || album.isSmartID(data.id) || data.is_tag_album;
+	// The condition below is faulty wrt. to two issues:
+	//
+	//  a) The condition only checks whether the owning/current album is
+	//     uploadable (aka "editable"), but it does not check whether the
+	//     album at hand whose icon is built is editable.
+	//     But this is of similar importance.
+	//     Currently, we only check whether the album at hand is a smart
+	//     album or tag album which are always considered non-editable.
+	//     But this is only half of the story.
+	//     For example, a regular album might still be non-editable, if the
+	//     current user is not the owner of that album.
+	//  b) This method is not only called if the owning/current album is a
+	//     proper album, but also for the root view.
+	//     However, `album.isUploadable` should not be called for the root
+	//     view.
+	//
+	// Moreover, we have to distinguish between "drag" and "drop".
+	// Doing so would also solve the problems above:
+	//
+	// - "Drag": If the current child album at hand can be dragged (away)
+	//   is mostly determined by the user's rights on the parent album.
+	//   Instead of (erroneously) using `album.isUploadable()` for that
+	//   (even for the root view), the "right to drag" should be passed to
+	//   this method as a parameter very much like `disabled` such that this
+	//   method can be used for both regular albums and the root view.
+	// - "Drop": If something (e.g. a photo) can be dropped onto the child
+	//   album at hand is independent of the user's rights on the containing
+	//   album.
+	//   Whether the child album supports the drop event depends on the type
+	//   of the album (i.e. it must not be a smart or tag album), but also
+	//   on the ownership of the album.
+	const disableDragDrop = !data.rights.can_edit || disabled || album.isSmartID(data.id) || data.is_tag_album;
 	let subtitle = formattedCreationTs;
 
 	// check setting album_subtitle_type:
@@ -114,9 +145,9 @@ build.album = function (data, disabled = false) {
 	}
 
 	let html = lychee.html`
-			<div class='album ${disabled ? `disabled` : ``} ${data.is_nsfw && lychee.nsfw_blur ? `blurred` : ``}'
+			<div class='album ${disabled ? `disabled` : ``} ${data.policy.is_nsfw && lychee.nsfw_blur ? `blurred` : ``}'
 				data-id='${data.id}'
-				data-nsfw='${data.is_nsfw ? `1` : `0`}'
+				data-nsfw='${data.policy.is_nsfw ? `1` : `0`}'
 				data-tabindex='${tabindex.get_next_tab_index()}'
 				draggable='${disableDragDrop ? "false" : "true"}'
 				${
@@ -137,32 +168,85 @@ build.album = function (data, disabled = false) {
 				</div>
 			`;
 
-	if (album.isUploadable() && !disabled) {
+	if (data.rights.can_edit && !disabled) {
 		let isCover = album.json && album.json.cover_id && data.thumb.id === album.json.cover_id;
 		html += lychee.html`
 				<div class='badges'>
-					<a class='badge ${data.is_nsfw ? "badge--nsfw" : ""} icn-warning'>${build.iconic("warning")}</a>
+					<a class='badge ${data.policy && data.policy.is_nsfw ? "badge--nsfw" : ""} icn-warning'>${build.iconic("warning")}</a>
 					<a class='badge ${data.id === SmartAlbumID.STARRED ? "badge--star" : ""} icn-star'>${build.iconic("star")}</a>
 					<a class='badge ${data.id === SmartAlbumID.RECENT ? "badge--visible badge--list" : ""}'>${build.iconic("clock")}</a>
-					<a class='badge ${data.id === SmartAlbumID.PUBLIC || data.is_public ? "badge--visible" : ""} ${
-			data.requires_link ? "badge--hidden" : "badge--not--hidden"
+					<a class='badge ${data.id === SmartAlbumID.ON_THIS_DAY ? "badge--tag badge--list" : ""}'>${build.iconic("calendar")}</a>
+					<a class='badge ${data.id === SmartAlbumID.PUBLIC || (data.policy && data.policy.is_public) ? "badge--visible" : ""} ${
+			data.policy && data.policy.is_link_required ? "badge--hidden" : "badge--not--hidden"
 		} icn-share'>${build.iconic("eye")}</a>
 					<a class='badge ${data.id === SmartAlbumID.UNSORTED ? "badge--visible" : ""}'>${build.iconic("list")}</a>
-					<a class='badge ${data.has_password ? "badge--visible" : ""}'>${build.iconic("lock-locked")}</a>
+					<a class='badge ${data.policy && data.policy.is_password_required ? "badge--visible" : ""}'>${build.iconic("lock-unlocked")}</a>
 					<a class='badge ${data.is_tag_album ? "badge--tag" : ""}'>${build.iconic("tag")}</a>
 					<a class='badge ${isCover ? "badge--cover" : ""} icn-cover'>${build.iconic("folder-cover")}</a>
 				</div>
 				`;
 	}
 
-	if ((data.albums && data.albums.length > 0) || data.has_albums) {
-		html += lychee.html`
-				<div class='subalbum_badge'>
-					<a class='badge badge--folder'>${build.iconic("layers")}</a>
-				</div>`;
-	}
+	let albumcount = data.num_subalbums;
 
-	html += "</div>";
+	switch (lychee.album_decoration) {
+		case "none": // no decorations
+			break;
+		case "photo": // photos only
+			html += lychee.html`
+				<div class='album_counters'>
+					<div class='photos'>
+						<a class='photos'>${build.iconic("puzzle-piece")}
+						<span>${data.num_photos}</span>
+						</a>
+					</div>
+				</div>`;
+			break;
+		case "layers": // sub-albums only and only marker without count (as in old v4 behaviour)
+			if (albumcount > 0) {
+				html += lychee.html`
+					<div class='album_counters'>
+						<a class='layers'>${build.iconic("layers")}</a>
+					</div>`;
+			}
+			break;
+		case "album": // sub-albums only
+			if (albumcount > 0) {
+				html += lychee.html`
+					<div class='album_counters'>
+						<a class='folders'>${build.iconic("folder")}`;
+				if (albumcount > 1)
+					html += lychee.html`
+						<span>${albumcount}</span>`;
+				html += lychee.html`
+						</a>
+					</div>`;
+			}
+			break;
+		case "all": // sub-albums and photos
+			if (albumcount > 0 || data.num_photos > 0) {
+				html += lychee.html`
+					<div class='album_counters' style='flex-direction: ${lychee.album_decoration_orientation}'>`;
+				if (data.num_photos > 0) {
+					html += lychee.html`
+							<a class='photos'>${build.iconic("puzzle-piece")}
+								<span>${data.num_photos}</span>
+							</a>`;
+				}
+				if (albumcount > 0) {
+					html += lychee.html`
+						<a class='folders'>${build.iconic("folder")}`;
+					if (albumcount > 1)
+						html += lychee.html`
+							<span>${albumcount}</span>`;
+					html += lychee.html`
+						</a>`;
+				}
+				html += lychee.html`
+					</div>`;
+			}
+	}
+	html += "</div>"; // close 'album'
 
 	return html;
 };
@@ -296,7 +380,9 @@ build.photo = function (data, disabled = false) {
 		html += lychee.html`
 				<div class='badges'>
 				<a class='badge ${data.is_starred ? "badge--star" : ""} icn-star'>${build.iconic("star")}</a>
-				<a class='badge ${data.is_public && album.json && !album.json.is_public ? "badge--visible badge--hidden" : ""} icn-share'>${build.iconic("eye")}</a>
+				<a class='badge ${
+					data.is_public && album.json && album.json.policy && !album.json.policy.is_public ? "badge--visible badge--hidden" : ""
+				} icn-share'>${build.iconic("eye")}</a>
 				<a class='badge ${isCover ? "badge--cover" : ""} icn-cover'>${build.iconic("folder-cover")}</a>
 				</div>
 				`;
@@ -540,15 +626,17 @@ build.user = function (user) {
 			<span class="checkbox"><svg class="iconic "><use xlink:href="#check"></use></svg></span>
 			</label>
 			</span>
-			<span class="choice" title="${lychee.locale["RESTRICTED_ACCOUNT"]}">
+			<span class="choice" title="${lychee.locale["ALLOW_USER_SELF_EDIT"]}">
 			<label>
-			<input type="checkbox" name="is_locked" />
+			<input type="checkbox" name="may_edit_own_settings" />
 			<span class="checkbox"><svg class="iconic "><use xlink:href="#check"></use></svg></span>
 			</label>
 			</span>
 			</p>
-			<a id="UserUpdate${user.id}"  class="basicModal__button basicModal__button_OK">Save</a>
-			<a id="UserDelete${user.id}"  class="basicModal__button basicModal__button_DEL">Delete</a>
+			<a id="UserUpdate${user.id}"  class="basicModal__button basicModal__button_OK ${user.id !== lychee.user.id ? "" : "basicModal__button_OK_no_DEL"}">${
+		lychee.locale["SAVE"]
+	}</a>
+			${user.id !== lychee.user.id ? `<a id="UserDelete${user.id}"  class="basicModal__button basicModal__button_DEL">${lychee.locale["DELETE"]}</a>` : ""}
 		</div>
 		`;
 };
@@ -562,18 +650,6 @@ build.u2f = function (credential) {
 			<p id="CredentialData${credential.id}">
 			<input name="id" type="hidden" inputmode="string" value="${credential.id}" />
 			<span class="text">${credential.id.slice(0, 30)}</span>
-			<!--- <span class="choice" title="Allow uploads">
-			<label>
-			<input type="checkbox" name="may_upload" />
-			<span class="checkbox"><svg class="iconic "><use xlink:href="#check"></use></svg></span>
-			</label>
-			</span>
-			<span class="choice" title="Restricted account">
-			<label>
-			<input type="checkbox" name="is_locked" />
-			<span class="checkbox"><svg class="iconic "><use xlink:href="#check"></use></svg></span>
-			</label>
-			</span>--->
 			</p>
 			<a id="CredentialDelete${credential.id}"  class="basicModal__button basicModal__button_DEL">Delete</a>
 		</div>
